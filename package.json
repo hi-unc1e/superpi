@@ -51,7 +51,8 @@
       "output": "dist"
     },
     "files": [
-      "out/**/*"
+      "out/**/*",
+      "icon.png"
     ],
     "extraResources": [
       {

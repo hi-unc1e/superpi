@@ -46,6 +46,7 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     title: 'superpi',
     backgroundColor: '#09090b',
+    icon: join(app.getAppPath(), 'icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

@@ -1,8 +1,10 @@
+<p align="center">
+  <img src="favicon.svg" width="128" alt="superpi logo" />
+</p>
+
 # superpi
 
 A desktop workspace manager that runs parallel AI coding agents — each in its own git worktree with a live terminal. Built on [oh-my-pi](https://github.com/ohnoprompt/oh-my-pi) (`omp`).
-
-Open a project folder → launch agents → watch them work in real time. Every agent gets an isolated git branch, so parallel work never collides, and you can review, commit, merge, or rebase each agent's changes from the UI.
 
 ## Features
 
@@ -14,10 +16,6 @@ Open a project folder → launch agents → watch them work in real time. Every 
 - **Workspace-aware** — remembers recent folders; git log panel for the main branch
 - **Worktree isolation** — `node_modules` symlinked from workspace into each worktree so agents can typecheck/build/test without `npm install`
 - **Session revival** — re-opening a workspace re-spawns all agents and restores their terminal PTYs
-
-## Screenshots
-
-<!-- TODO: add screenshots -->
 
 ## Prerequisites
 
