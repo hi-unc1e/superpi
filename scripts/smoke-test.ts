@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WorktreeManager, linkNodeModules } from '../src/main/worktree'
 import { StatusWatcher } from '../src/main/status'
-import { getWorktreeUnifiedDiff } from '../src/main/git'
+import { getWorktreeDiff, getWorktreeUnifiedDiff } from '../src/main/git'
 
 let failures = 0
 function check(name: string, cond: boolean, detail = ''): void {
@@ -143,6 +143,15 @@ async function testDiff(): Promise<void> {
 
   git(['commit', '-q', '-am', 'final'], repo)
   check('clean tree yields empty diff', (await getWorktreeUnifiedDiff(repo)).files.length === 0)
+
+  // Untracked files are invisible to `git diff HEAD` but must contribute
+  // to the numstat so the UI shows correct line counts for new files.
+  writeFileSync(join(repo, 'untracked.txt'), 'line one\nline two\nline three\n')
+  const stat = await getWorktreeDiff(repo)
+  check('untracked file counted in files', stat.files === 1, String(stat.files))
+  check('untracked file lines counted as added', stat.added === 3, String(stat.added))
+  check('untracked file has no deletions', stat.deleted === 0)
+  check('untracked file sets hasChanges', stat.hasChanges)
   rmSync(repo, { recursive: true, force: true })
 }
 

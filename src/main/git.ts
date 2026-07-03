@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import simpleGit from 'simple-git'
-import type { GitLogEntry, WorktreeCommit, WorktreeDiff, WorktreeDiffFile, WorktreeDiffHunk, WorktreeDiffStat, WorktreeGraph } from '@shared/types'
+ import type { GitLogEntry, WorktreeCommit, WorktreeDiff, WorktreeDiffFile, WorktreeDiffHunk, WorktreeDiffStat, WorktreeGraph } from '@shared/types'
 
 
 /** True if <path> is inside a git working tree. */
@@ -94,7 +96,6 @@ export async function getWorktreeGraph(
   return { branch, mainBranch, ahead, behind, baseHash: baseRaw.slice(0, 7) }
 }
 
-/** Unstaged line changes in the worktree (working tree vs index). */
 export async function getWorktreeDiff(worktreePath: string): Promise<WorktreeDiffStat> {
   const git = simpleGit(worktreePath)
   const out = await git.raw(['diff', 'HEAD', '--numstat'])
@@ -106,6 +107,22 @@ export async function getWorktreeDiff(worktreePath: string): Promise<WorktreeDif
     files++
     if (a && a !== '-') added += parseInt(a, 10) || 0
     if (d && d !== '-') deleted += parseInt(d, 10) || 0
+  }
+  // Untracked files are invisible to `git diff HEAD`; count their lines
+  // separately so new files contribute to the diff stat shown in the UI.
+  const untracked = await git.raw(['ls-files', '--others', '--exclude-standard'])
+  for (const name of untracked.split('\n').filter(Boolean)) {
+    try {
+      const content = readFileSync(join(worktreePath, name), 'utf8')
+      // Count lines: split on \n; a trailing empty string after the
+      // final newline does not represent a line. Match wc -l semantics.
+      const lines = content.split('\n')
+      const count = lines[lines.length - 1] === '' ? lines.length - 1 : lines.length
+      added += count
+      files++
+    } catch {
+      // binary or unreadable — skip
+    }
   }
   const status = await git.raw(['status', '--porcelain'])
   return { added, deleted, files, hasChanges: status.trim().length > 0 }
