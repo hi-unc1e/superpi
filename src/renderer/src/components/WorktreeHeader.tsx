@@ -29,12 +29,10 @@ export function WorktreeHeader({
   const [message, setMessage] = useState('')
 
   const refresh = useCallback(async (): Promise<void> => {
-    try {
-      setState(await window.superpi.worktreeGitState(id))
-      setError(null)
-    } catch (e) {
-      setError(errMsg(e))
-    }
+    // Never touches `error`: action errors must stay visible until the user
+    // dismisses them or the next action replaces them — the 2s poll (and the
+    // refresh right after each action) used to wipe them instantly.
+    setState(await window.superpi.worktreeGitState(id))
   }, [id])
 
   useEffect(() => {
@@ -148,8 +146,18 @@ export function WorktreeHeader({
       )}
 
       {error && (
-        <span className="w-full truncate text-red-400" title={error}>
-          {error}
+        <span className="flex w-full min-w-0 items-center gap-2 text-red-400">
+          <span className="min-w-0 truncate" title={error}>
+            {error}
+          </span>
+          <button
+            type="button"
+            className="shrink-0 px-1 text-zinc-500 hover:text-zinc-200"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
         </span>
       )}
     </div>

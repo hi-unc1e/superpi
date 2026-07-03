@@ -233,7 +233,9 @@ export async function mergeWorktreeToMain(
       /* not in a merge state */
     }
     if (conflict) {
-      throw new Error(`Merge aborted: conflicts merging ${branch} into ${mainBranch}. Resolve them and retry.`)
+      throw new Error(
+        `Merge aborted: ${branch} conflicts with ${mainBranch}. Rebase this worktree first (conflicts open in the Conflicts panel), then merge.`
+      )
     }
     throw hardErr
   }
