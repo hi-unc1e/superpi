@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import simpleGit from 'simple-git'
 import type { ConflictInfo, ConflictResolution, GitLogEntry, WorktreeCommit, WorktreeDiff, WorktreeDiffFile, WorktreeDiffHunk, WorktreeDiffStat, WorktreeGraph } from '@shared/types'
@@ -203,6 +203,19 @@ export async function commitWorktree(worktreePath: string, message: string): Pro
   await git.raw(['commit', '-q', '-m', message])
 }
 
+/** Untracked paths listed in git's "would be overwritten by merge" refusal:
+ * the indented lines between the error header and the "Please move" advice. */
+function parseUntrackedBlockers(message: string): string[] {
+  const lines = message.split('\n')
+  const start = lines.findIndex((l) => l.includes('untracked working tree files would be overwritten'))
+  if (start < 0) return []
+  const files: string[] = []
+  for (let i = start + 1; i < lines.length && /^\s+\S/.test(lines[i]); i++) {
+    files.push(lines[i].trim())
+  }
+  return files
+}
+
 /** Merge the worktree branch into main, run from the main working tree. */
 export async function mergeWorktreeToMain(
   workspacePath: string,
@@ -220,10 +233,35 @@ export async function mergeWorktreeToMain(
   // simpleGit.raw does not reject on a conflicted merge (no "error:" marker),
   // so detect unmerged paths explicitly and abort to keep the tree usable.
   let hardErr: unknown = null
-  try {
-    await git.raw(['merge', '--no-edit', branch])
-  } catch (e) {
-    hardErr = e
+  for (let attempt = 0; attempt < 2; attempt++) {
+    hardErr = null
+    try {
+      await git.raw(['merge', '--no-edit', branch])
+    } catch (e) {
+      hardErr = e
+    }
+    if (!hardErr || attempt > 0) break
+    // Untracked files in the WORKSPACE folder blocking the merge: deleting one
+    // is lossless iff it is byte-identical to the blob the merge would write —
+    // then auto-clear and retry once. Anything divergent stays a hard stop.
+    const blockers = parseUntrackedBlockers(hardErr instanceof Error ? hardErr.message : String(hardErr))
+    if (blockers.length === 0) break
+    for (const f of blockers) {
+      let identical = false
+      try {
+        const incoming = (await git.raw(['rev-parse', `${branch}:${f}`])).trim()
+        const existing = (await git.raw(['hash-object', '--', f])).trim()
+        identical = incoming === existing
+      } catch {
+        /* not in branch / unreadable — treat as divergent */
+      }
+      if (!identical) {
+        throw new Error(
+          `Merge blocked: untracked file(s) in the workspace folder would be overwritten and differ from ${branch}'s version: ${blockers.join(', ')}. Move or remove them in the workspace (not this worktree), then merge.`
+        )
+      }
+    }
+    for (const f of blockers) unlinkSync(worktreeFilePath(workspacePath, f))
   }
   const conflict = (await git.raw(['diff', '--name-only', '--diff-filter=U'])).trim().length > 0
   if (conflict || hardErr) {
