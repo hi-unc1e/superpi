@@ -148,7 +148,7 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
     if (!a) throw new Error(`Agent not found: ${id}`)
     const config = c.configs.get(a.configId) ?? c.configs.default()
     c.terminals.spawn(id, a.worktreePath, a.sessionDir, a.kind, config, 100, 30, true)
-    if (a.kind !== 'terminal') c.status.watch(id, a.sessionDir, a.eventsFile)
+    if (a.kind !== 'terminal') c.status.watch(id, a.sessionDir, a.eventsFile, { replay: true })
   })
 
   // ---- Configs ----
@@ -184,7 +184,7 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
 
     const config = c.configs.get(agent.configId)
     c.terminals.spawn(id, agent.worktreePath, agent.sessionDir, agent.kind, config)
-    if (agent.kind !== 'terminal') c.status.watch(id, agent.sessionDir, agent.eventsFile)
+    if (agent.kind !== 'terminal') c.status.watch(id, agent.sessionDir, agent.eventsFile, { replay: true })
 
     const sz = c.terminals.size(id)
     if (!sz) return null

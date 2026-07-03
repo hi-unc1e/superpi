@@ -91,7 +91,7 @@ app.whenReady().then(async () => {
       try {
         const config = configs.get(agent.configId) ?? configs.default()
         terminals.spawn(agent.id, agent.worktreePath, agent.sessionDir, agent.kind, config, 100, 30, true)
-        if (agent.kind !== 'terminal') status.watch(agent.id, agent.sessionDir, agent.eventsFile)
+        if (agent.kind !== 'terminal') status.watch(agent.id, agent.sessionDir, agent.eventsFile, { replay: true })
       } catch (err) {
         console.error(`[superpi] failed to revive agent ${agent.id}:`, err)
         status.markStopped(agent.id)

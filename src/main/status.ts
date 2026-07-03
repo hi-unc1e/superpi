@@ -24,18 +24,24 @@ interface Watch {
 export class StatusWatcher extends EventEmitter {
   private watches = new Map<string, Watch>()
 
-  watch(agentId: string, sessionDir: string, eventsFile: string): void {
+  /** Start watching an agent. With `replay`, the existing events history is
+   * reprocessed first (restores status/lastTool/todoPhases after an app
+   * restart); a stale trailing 'working' is clamped to 'idle' because a
+   * freshly spawned PTY has no turn in flight. Without it, only events
+   * appended after this call are seen. */
+  watch(agentId: string, sessionDir: string, eventsFile: string, opts?: { replay?: boolean }): void {
     if (this.watches.has(agentId)) return
     const w: Watch = {
       agentId,
       sessionDir,
       eventsFile,
-      eventsPos: existsSync(eventsFile) ? statSync(eventsFile).size : 0,
+      eventsPos: opts?.replay || !existsSync(eventsFile) ? 0 : statSync(eventsFile).size,
       sessionPos: 0,
       info: { agentId, status: 'starting', updatedAt: Date.now() }
     }
     this.watches.set(agentId, w)
     this.poll(w)
+    if (opts?.replay && w.info.status === 'working') w.info.status = 'idle'
     this.emit('changed', w.info)
     w.interval = setInterval(() => this.poll(w), POLL_MS)
     w.interval.unref?.()
