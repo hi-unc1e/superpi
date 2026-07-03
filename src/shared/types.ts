@@ -100,6 +100,34 @@ export interface WorktreeDiffStat {
   hasChanges: boolean
 }
 
+/** One line of a unified diff for a worktree file (working tree vs HEAD). */
+export interface WorktreeDiffLine {
+  type: 'add' | 'del' | 'context'
+  oldNo?: number
+  newNo?: number
+  text: string
+}
+
+/** A contiguous `@@ ... @@` hunk inside a file diff. */
+export interface WorktreeDiffHunk {
+  header: string
+  lines: WorktreeDiffLine[]
+}
+
+/** A single file's diff against HEAD, parsed for the IDE-style diff view. */
+export interface WorktreeDiffFile {
+  path: string
+  added: number
+  deleted: number
+  binary: boolean
+  hunks: WorktreeDiffHunk[]
+}
+
+/** Structured worktree changes vs HEAD for the diff panel. */
+export interface WorktreeDiff {
+  files: WorktreeDiffFile[]
+}
+
 /** Snapshot of a worktree's git state for the terminal header. */
 export interface WorktreeGitState {
   graph: WorktreeGraph
@@ -148,6 +176,7 @@ export interface SuperpiAPI {
 
   // Worktree git (graph + actions on the worktree branch)
   worktreeGitState(id: string): Promise<WorktreeGitState | null>
+  getWorktreeDiff(id: string): Promise<WorktreeDiff>
   commitWorktree(id: string, message: string): Promise<WorktreeActionResult>
   mergeWorktreeToMain(id: string): Promise<WorktreeActionResult>
   rebaseWorktree(id: string): Promise<WorktreeActionResult>

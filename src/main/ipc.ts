@@ -2,9 +2,9 @@ import { BrowserWindow, dialog, ipcMain } from 'electron'
 import simpleGit from 'simple-git'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import type { AgentConfig, AgentDescriptor, AgentKind, GitLogEntry, TerminalAttachResult, WorktreeActionResult, WorktreeGitState, WorkspaceInfo } from '@shared/types'
+import type { AgentConfig, AgentDescriptor, AgentKind, GitLogEntry, TerminalAttachResult, WorktreeActionResult, WorktreeDiff, WorktreeGitState, WorkspaceInfo } from '@shared/types'
 import { eventsFileFor, sessionDirFor } from './paths'
-import { commitWorktree, getLog, getWorktreeDiff, getWorktreeGraph, initRepo, mergeWorktreeToMain, rebaseWorktree, resolveMainBranch } from './git'
+import { commitWorktree, getLog, getWorktreeDiff, getWorktreeGraph, getWorktreeUnifiedDiff, initRepo, mergeWorktreeToMain, rebaseWorktree, resolveMainBranch } from './git'
 import type { AgentStore } from './agents'
 import type { ConfigStore } from './configs'
 import type { StatusWatcher } from './status'
@@ -199,6 +199,12 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
     } catch {
       return null
     }
+  })
+
+  ipcMain.handle('worktree:diff', async (_e, id: string): Promise<WorktreeDiff> => {
+    const a = c.agents.get(id)
+    if (!a) return { files: [] }
+    return getWorktreeUnifiedDiff(a.worktreePath)
   })
 
   ipcMain.handle('worktree:commit', async (_e, id: string, message: string): Promise<WorktreeActionResult> => {

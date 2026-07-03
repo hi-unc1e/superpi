@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WorktreeManager, linkNodeModules } from '../src/main/worktree'
 import { StatusWatcher } from '../src/main/status'
+import { getWorktreeUnifiedDiff } from '../src/main/git'
 
 let failures = 0
 function check(name: string, cond: boolean, detail = ''): void {
@@ -114,9 +115,41 @@ async function testStatus(): Promise<void> {
   rmSync(dir, { recursive: true, force: true })
 }
 
+async function testDiff(): Promise<void> {
+  console.log('WorktreeDiff parser')
+  const repo = mkdtempSync(join(tmpdir(), 'spdiff-'))
+  git(['init', '-q'], repo)
+  git(['config', 'user.email', 't@t.tt'], repo)
+  git(['config', 'user.name', 't'], repo)
+  try {
+    git(['checkout', '-q', '-b', 'main'], repo)
+  } catch {
+    /* already on a branch */
+  }
+  writeFileSync(join(repo, 'a.txt'), 'one\ntwo\nthree\nfour\n')
+  git(['add', '-A'], repo)
+  git(['commit', '-q', '-m', 'init'], repo)
+  writeFileSync(join(repo, 'a.txt'), 'one\nthree\nfour\nfive\nsix\n')
+
+  const diff = await getWorktreeUnifiedDiff(repo)
+  const f = diff.files.find((x) => x.path === 'a.txt')
+  check('parsed file a.txt', !!f)
+  const lines = f!.hunks.flatMap((h) => h.lines)
+  check('counts added=2 deleted=1', f!.added === 2 && f!.deleted === 1)
+  check('context line carries old & new numbers',
+    lines.find((l) => l.text === 'three')?.oldNo === 3 && lines.find((l) => l.text === 'three')?.newNo === 2)
+  check('added lines carry newNo only',
+    lines.find((l) => l.text === 'five')?.newNo === 4 && lines.find((l) => l.text === 'five')?.oldNo === undefined)
+
+  git(['commit', '-q', '-am', 'final'], repo)
+  check('clean tree yields empty diff', (await getWorktreeUnifiedDiff(repo)).files.length === 0)
+  rmSync(repo, { recursive: true, force: true })
+}
+
 async function main(): Promise<void> {
   await testWorktree()
   await testStatus()
+  await testDiff()
   if (failures > 0) {
     console.error(`\n${failures} check(s) FAILED`)
     process.exit(1)

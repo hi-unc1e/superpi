@@ -1,5 +1,5 @@
 import simpleGit from 'simple-git'
-import type { GitLogEntry, WorktreeCommit, WorktreeDiffStat, WorktreeGraph } from '@shared/types'
+import type { GitLogEntry, WorktreeCommit, WorktreeDiff, WorktreeDiffFile, WorktreeDiffHunk, WorktreeDiffStat, WorktreeGraph } from '@shared/types'
 
 
 /** True if <path> is inside a git working tree. */
@@ -109,6 +109,70 @@ export async function getWorktreeDiff(worktreePath: string): Promise<WorktreeDif
   }
   const status = await git.raw(['status', '--porcelain'])
   return { added, deleted, files, hasChanges: status.trim().length > 0 }
+}
+
+/** Full unified-diff content of the worktree vs HEAD, parsed into files/hunks/lines
+ * for the IDE-style diff panel. Tracked changes only (matches the header's numstat). */
+export async function getWorktreeUnifiedDiff(worktreePath: string): Promise<WorktreeDiff> {
+  const git = simpleGit(worktreePath)
+  const out = await git.raw(['diff', 'HEAD', '--no-color'])
+  return parseUnifiedDiff(out)
+}
+
+/** Parse `git diff` unified output into structured files. Robust to renames,
+ * binary files, and the "\ No newline at end of file" marker. */
+function parseUnifiedDiff(diff: string): WorktreeDiff {
+  const files: WorktreeDiffFile[] = []
+  let file: WorktreeDiffFile | null = null
+  let hunk: WorktreeDiffHunk | null = null
+  let oldNo = 0
+  let newNo = 0
+
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('diff --git ')) {
+      if (file) files.push(file)
+      file = { path: '', added: 0, deleted: 0, binary: false, hunks: [] }
+      hunk = null
+      continue
+    }
+    if (!file) continue
+    // Deletion: '+++ /dev/null' — fall back to the '---' path already captured.
+    if (line.startsWith('--- ')) {
+      if (!file.path) {
+        const p = line.slice(4)
+        if (p !== '/dev/null') file.path = p.startsWith('a/') ? p.slice(2) : p
+      }
+      continue
+    }
+    if (line.startsWith('+++ ')) {
+      const p = line.slice(4)
+      if (p !== '/dev/null') file.path = p.startsWith('b/') ? p.slice(2) : p
+      continue
+    }
+    if (line.startsWith('@@')) {
+      const m = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
+      if (m) { oldNo = +m[1]; newNo = +m[2] }
+      hunk = { header: line, lines: [] }
+      file.hunks.push(hunk)
+      continue
+    }
+    if (line.startsWith('Binary files')) {
+      file.binary = true
+      continue
+    }
+    if (!hunk || line === '' || line.startsWith('\\')) continue
+    if (line.startsWith('+')) {
+      hunk.lines.push({ type: 'add', newNo: newNo++, text: line.slice(1) })
+      file.added++
+    } else if (line.startsWith('-')) {
+      hunk.lines.push({ type: 'del', oldNo: oldNo++, text: line.slice(1) })
+      file.deleted++
+    } else if (line.startsWith(' ')) {
+      hunk.lines.push({ type: 'context', oldNo: oldNo++, newNo: newNo++, text: line.slice(1) })
+    }
+  }
+  if (file) files.push(file)
+  return { files }
 }
 
 /** Stage everything and commit to the worktree branch. */

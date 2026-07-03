@@ -11,7 +11,15 @@ function errMsg(e: unknown): string {
 
 /** Header above a worktree terminal: branch graph, merge/commit/rebase controls,
  * and the unstaged +/- LoC. Polls git state and refreshes after each action. */
-export function WorktreeHeader({ id }: { id: string }) {
+export function WorktreeHeader({
+  id,
+  diffOpen,
+  onToggleDiff
+}: {
+  id: string
+  diffOpen: boolean
+  onToggleDiff: () => void
+}) {
   const [state, setState] = useState<WorktreeGitState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -102,17 +110,22 @@ export function WorktreeHeader({ id }: { id: string }) {
         </button>
       </div>
 
-      <div className="ml-auto flex items-center gap-2 font-mono">
-        {diff && (
-          <>
-            <span className="text-emerald-400">+{diff.added}</span>
-            <span className="text-red-400">−{diff.deleted}</span>
-            <span className="text-zinc-600">
-              {diff.files} {diff.files === 1 ? 'file' : 'files'}
-            </span>
-          </>
-        )}
-      </div>
+      {diff && (
+        <button
+          type="button"
+          onClick={onToggleDiff}
+          disabled={!diff.hasChanges}
+          title={diffOpen ? 'Hide changes' : 'Show changes'}
+          className="ml-auto flex items-center gap-2 rounded px-1.5 py-0.5 font-mono hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <span className="text-emerald-400">+{diff.added}</span>
+          <span className="text-red-400">−{diff.deleted}</span>
+          <span className="text-zinc-600">
+            {diff.files} {diff.files === 1 ? 'file' : 'files'}
+          </span>
+          <span className="text-zinc-500">{diffOpen ? '◂' : '▸'}</span>
+        </button>
+      )}
 
       {error && (
         <span className="w-full truncate text-red-400" title={error}>

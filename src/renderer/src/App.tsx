@@ -5,6 +5,7 @@ import { GitInitBanner } from './components/GitInitBanner'
 import { AgentSidebar } from './components/AgentSidebar'
 import { TerminalPane } from './components/TerminalPane'
 import { StatusBar } from './components/StatusBar'
+import { DiffPane } from './components/DiffPane'
 import { emitTermData } from './lib/terminalBus'
 
 
@@ -12,6 +13,7 @@ export function App() {
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null | undefined>(undefined)
   const [agents, setAgents] = useState<AgentDescriptor[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [diffOpen, setDiffOpen] = useState(false)
   const [statuses, setStatuses] = useState<Record<string, AgentStatusInfo>>({})
 
   useEffect(() => {
@@ -68,13 +70,23 @@ export function App() {
           onSelect={setActiveId}
         />
         <main className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex-1 overflow-hidden">
-            {active ? (
-              <TerminalPane key={active.id} id={active.id} />
-            ) : (
-              <div className="flex h-full items-center justify-center text-zinc-500">
-                No agent — click +New to launch one in this worktree.
-              </div>
+          <div className="flex flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden">
+              {active ? (
+                <TerminalPane
+                  key={active.id}
+                  id={active.id}
+                  diffOpen={diffOpen}
+                  onToggleDiff={() => setDiffOpen((o) => !o)}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-zinc-500">
+                  No agent — click +New to launch one in this worktree.
+                </div>
+              )}
+            </div>
+            {diffOpen && active && (
+              <DiffPane id={active.id} onClose={() => setDiffOpen(false)} />
             )}
           </div>
           <StatusBar agent={active} info={active ? statuses[active.id] : undefined} />

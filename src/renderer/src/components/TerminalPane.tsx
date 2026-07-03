@@ -8,7 +8,15 @@ import { WorktreeHeader } from './WorktreeHeader'
 
 type AttachState = 'loading' | 'self' | 'remote' | 'error'
 
-export function TerminalPane({ id }: { id: string }) {
+export function TerminalPane({
+  id,
+  diffOpen,
+  onToggleDiff
+}: {
+  id: string
+  diffOpen: boolean
+  onToggleDiff: () => void
+}) {
   const elRef = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<AttachState>('loading')
 
@@ -91,7 +99,7 @@ export function TerminalPane({ id }: { id: string }) {
 
   return (
     <div className="flex h-full w-full flex-col">
-      <WorktreeHeader id={id} />
+      <WorktreeHeader id={id} diffOpen={diffOpen} onToggleDiff={onToggleDiff} />
       <div className="flex-1 overflow-hidden">{body}</div>
     </div>
   )

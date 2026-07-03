@@ -60,6 +60,7 @@ const api: SuperpiAPI = {
 
   // Worktree git
   worktreeGitState: (id) => ipcRenderer.invoke('worktree:gitState', id),
+  getWorktreeDiff: (id) => ipcRenderer.invoke('worktree:diff', id),
   commitWorktree: (id, message) => ipcRenderer.invoke('worktree:commit', id, message),
   mergeWorktreeToMain: (id) => ipcRenderer.invoke('worktree:merge', id),
   rebaseWorktree: (id) => ipcRenderer.invoke('worktree:rebase', id),
