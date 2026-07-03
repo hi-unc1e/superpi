@@ -30,6 +30,20 @@ export interface AgentDescriptor {
 export type AgentKind = 'omp' | 'terminal'
 
 export type AgentStatus = 'starting' | 'working' | 'idle' | 'stopped' | 'error'
+/** Lifecycle status of a single todo task, mirroring omp's `todo` tool. */
+export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'abandoned'
+
+/** One task in an agent's todo list. */
+export interface TodoItem {
+  content: string
+  status: TodoStatus
+}
+
+/** A named group of todo tasks — a phase/section of the agent's plan. */
+export interface TodoPhase {
+  name: string
+  tasks: TodoItem[]
+}
 
 export interface AgentStatusInfo {
   agentId: string
@@ -40,6 +54,9 @@ export interface AgentStatusInfo {
   lastTool?: string
   model?: string
   contextUsagePct?: number
+  /** Latest todo list, captured from omp's `todo` tool results (undefined until
+   * the agent first invokes the `todo` tool in this session). */
+  todoPhases?: TodoPhase[]
   updatedAt: number
 }
 

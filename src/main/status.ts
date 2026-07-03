@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import type { AgentStatusInfo } from '@shared/types'
+import type { AgentStatusInfo, TodoItem, TodoPhase } from '@shared/types'
 
 const POLL_MS = 300
 
@@ -108,6 +108,11 @@ export class StatusWatcher extends EventEmitter {
       case 'session_start':
         w.info.status = 'idle'
         break
+      case 'todo_state': {
+        const phases = parseTodoPhases(ev.data)
+        if (phases) w.info.todoPhases = phases
+        break
+      }
     }
   }
 
@@ -163,4 +168,39 @@ function extractLastAssistant(text: string): string | undefined {
     if (txt) return txt.slice(-200)
   }
   return undefined
+}
+
+const TODO_STATUSES: Record<string, true> = {
+  pending: true,
+  in_progress: true,
+  completed: true,
+  abandoned: true
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null
+}
+
+/** Validate a `todo_state` payload read from the events file. The file is a
+ * read boundary, so we narrow the full TodoPhase[] shape with guards rather
+ * than trusting an unchecked cast on persisted data. */
+function parseTodoPhases(data: unknown): TodoPhase[] | undefined {
+  if (!isRecord(data)) return undefined
+  const phases = data.phases
+  if (!Array.isArray(phases)) return undefined
+  const out: TodoPhase[] = []
+  for (const p of phases) {
+    if (!isRecord(p)) return undefined
+    if (typeof p.name !== 'string' || !Array.isArray(p.tasks)) return undefined
+    const tasks: TodoItem[] = []
+    for (const t of p.tasks) {
+      if (!isRecord(t)) return undefined
+      if (typeof t.content !== 'string' || typeof t.status !== 'string') return undefined
+      if (!TODO_STATUSES[t.status]) return undefined
+      const status = t.status as TodoItem['status']
+      tasks.push({ content: t.content, status })
+    }
+    out.push({ name: p.name, tasks })
+  }
+  return out
 }

@@ -4,6 +4,7 @@ import { Welcome } from './components/Welcome'
 import { GitInitBanner } from './components/GitInitBanner'
 import { AgentSidebar } from './components/AgentSidebar'
 import { TerminalPane } from './components/TerminalPane'
+import { TodoPanel } from './components/TodoPanel'
 import { StatusBar } from './components/StatusBar'
 import { DiffPane } from './components/DiffPane'
 import { emitTermData } from './lib/terminalBus'
@@ -14,6 +15,7 @@ export function App() {
   const [agents, setAgents] = useState<AgentDescriptor[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [diffOpen, setDiffOpen] = useState(false)
+  const [todoAgentId, setTodoAgentId] = useState<string | null>(null)
   const [statuses, setStatuses] = useState<Record<string, AgentStatusInfo>>({})
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export function App() {
   useEffect(() => {
     window.superpi.listAgents().then(setAgents)
     setActiveId(null)
+    setTodoAgentId(null)
   }, [workspace?.path])
 
   useEffect(() => {
@@ -60,6 +63,7 @@ export function App() {
     )
   } else {
     const active = agents.find((a) => a.id === activeId) ?? null
+    const todoAgent = todoAgentId ? agents.find((a) => a.id === todoAgentId) ?? null : null
     body = (
       <div className="flex flex-1 overflow-hidden">
         <AgentSidebar
@@ -67,6 +71,8 @@ export function App() {
           agents={agents}
           statuses={statuses}
           activeId={activeId}
+          todoAgentId={todoAgentId}
+          onToggleTodos={(id) => setTodoAgentId((prev) => (prev === id ? null : id))}
           onSelect={setActiveId}
         />
         <main className="flex flex-1 flex-col overflow-hidden">
@@ -91,6 +97,13 @@ export function App() {
           </div>
           <StatusBar agent={active} info={active ? statuses[active.id] : undefined} />
         </main>
+        {todoAgent && (
+          <TodoPanel
+            agent={todoAgent}
+            phases={statuses[todoAgent.id]?.todoPhases}
+            onClose={() => setTodoAgentId(null)}
+          />
+        )}
       </div>
     )
   }

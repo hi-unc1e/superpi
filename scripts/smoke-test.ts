@@ -155,10 +155,51 @@ async function testDiff(): Promise<void> {
   rmSync(repo, { recursive: true, force: true })
 }
 
+async function testStatusTodos(): Promise<void> {
+  console.log('StatusWatcher todos')
+  const dir = mkdtempSync(join(tmpdir(), 'pidesk-todos-'))
+  const eventsFile = join(dir, 'events.jsonl')
+  writeFileSync(eventsFile, '')
+
+  const sw = new StatusWatcher()
+  sw.watch('t1', dir, eventsFile)
+  await sleep(60)
+
+  appendEvent(eventsFile, 'todo_state', {
+    phases: [
+      { name: 'Foundation', tasks: [
+        { content: 'Scaffold', status: 'completed' },
+        { content: 'Wire', status: 'completed' }
+      ] },
+      { name: 'Feature', tasks: [
+        { content: 'Implement', status: 'in_progress' },
+        { content: 'Test', status: 'pending' }
+      ] }
+    ]
+  })
+  await sleep(400)
+  const snap = sw.snapshot('t1')
+  const p = snap?.todoPhases
+  check('todo phases parsed', p?.length === 2, JSON.stringify(p))
+  check('phase names preserved', p?.[0].name === 'Foundation' && p?.[1].name === 'Feature')
+  check('all statuses preserved', p?.[1].tasks[0].status === 'in_progress' && p?.[1].tasks[1].status === 'pending')
+  check('completed task preserved', p?.[0].tasks[0].status === 'completed')
+
+  // A malformed payload must not corrupt the last good state.
+  appendEvent(eventsFile, 'todo_state', { phases: 'not-an-array' })
+  await sleep(400)
+  const after = sw.snapshot('t1')
+  check('malformed payload ignored', after?.todoPhases?.length === 2, JSON.stringify(after?.todoPhases))
+
+  sw.unwatch('t1')
+  rmSync(dir, { recursive: true, force: true })
+}
+
 async function main(): Promise<void> {
   await testWorktree()
   await testStatus()
   await testDiff()
+  await testStatusTodos()
   if (failures > 0) {
     console.error(`\n${failures} check(s) FAILED`)
     process.exit(1)

@@ -7,6 +7,8 @@ interface Props {
   agents: AgentDescriptor[]
   statuses: Record<string, AgentStatusInfo>
   activeId: string | null
+  todoAgentId: string | null
+  onToggleTodos: (id: string) => void
   onSelect: (id: string) => void
 }
 
@@ -21,7 +23,7 @@ const STATUS_DOT: Record<string, string> = {
 /** Poll interval for per-agent git diff (LoC) shown under each agent name. */
 const GIT_POLL_MS = 3000
 
-export function AgentSidebar({ workspace, agents, statuses, activeId, onSelect }: Props) {
+export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentId, onToggleTodos, onSelect }: Props) {
   const [creating, setCreating] = useState(false)
   const [configsOpen, setConfigsOpen] = useState(false)
   const [confirmId, setConfirmId] = useState<string | null>(null)
@@ -289,7 +291,18 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, onSelect }
                 )}
               </div>
               {!editing && !confirming && (
-                <div className="absolute right-2 top-4 hidden flex-col items-end gap-1 group-hover:flex">
+                <div className={`absolute right-2 top-4 flex-col items-end gap-1 ${todoAgentId === a.id ? 'flex' : 'hidden group-hover:flex'}`}>
+                  {a.kind !== 'terminal' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onToggleTodos(a.id)
+                      }}
+                      className={`text-[11px] hover:text-zinc-300 ${todoAgentId === a.id ? 'text-emerald-400' : 'text-zinc-500'}`}
+                    >
+                      todos
+                    </button>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
