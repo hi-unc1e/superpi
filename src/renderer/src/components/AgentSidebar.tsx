@@ -225,7 +225,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, onSelect }
             <div
               key={a.id}
               onClick={() => { if (!editing) onSelect(a.id) }}
-              className={`group relative cursor-pointer border-l-2 px-4 py-2 ${
+              className={`group relative cursor-pointer border-l-2 px-4 py-3 ${
                 active ? 'border-emerald-400 bg-zinc-800' : 'border-transparent hover:bg-zinc-800/60'
               } ${editing || confirming ? '' : 'group-hover:pr-16'}`}
             >
@@ -289,7 +289,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, onSelect }
                 )}
               </div>
               {!editing && !confirming && (
-                <div className="absolute right-2 top-2 hidden flex-col items-end gap-1 group-hover:flex">
+                <div className="absolute right-2 top-3 hidden flex-col items-end gap-1 group-hover:flex">
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
