@@ -234,9 +234,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                 active ? 'border-emerald-400 bg-zinc-800' : 'border-transparent hover:bg-zinc-800/60'
               }`}
             >
-              {/* DEV-GRID: temporary visible cell borders for the layout phase — delete this
-                  [&>*] border styling (and this comment) once the design settles. */}
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 [&>*]:border [&>*]:border-dashed [&>*]:border-fuchsia-500/40">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5">
                 {/* Row 1 — col 1: status dot + name (or rename input) */}
                 <div className="flex min-w-0 items-center gap-2">
                   {a.kind === 'terminal' ? (

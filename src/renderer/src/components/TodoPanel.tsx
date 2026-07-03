@@ -28,12 +28,12 @@ export function TodoPanel({ agent, phases, onClose }: Props) {
     <aside className="flex w-80 shrink-0 flex-col border-l border-zinc-800 bg-zinc-900">
       <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Todo list</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Task list</div>
           <div className="truncate text-sm text-zinc-100" title={agent.name}>
             {agent.name}
           </div>
         </div>
-        <button onClick={onClose} aria-label="Close todo list" className="text-zinc-500 hover:text-zinc-300">
+        <button onClick={onClose} aria-label="Close task list" className="text-zinc-500 hover:text-zinc-300">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -43,7 +43,7 @@ export function TodoPanel({ agent, phases, onClose }: Props) {
       <div className="flex-1 overflow-y-auto px-4 py-3">
         {empty ? (
           <p className="text-sm leading-relaxed text-zinc-500">
-            No todo list yet. The agent&apos;s plan will appear here once it creates one with the{' '}
+            No task list yet. The agent&apos;s plan will appear here once it creates one with the{' '}
             <span className="font-mono text-zinc-400">todo</span> tool.
           </p>
         ) : (
