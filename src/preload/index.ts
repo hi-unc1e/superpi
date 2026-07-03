@@ -64,6 +64,10 @@ const api: SuperpiAPI = {
   commitWorktree: (id, message) => ipcRenderer.invoke('worktree:commit', id, message),
   mergeWorktreeToMain: (id) => ipcRenderer.invoke('worktree:merge', id),
   rebaseWorktree: (id) => ipcRenderer.invoke('worktree:rebase', id),
+  readWorktreeFile: (id, path) => ipcRenderer.invoke('worktree:readFile', id, path),
+  resolveConflict: (id, path, resolution) => ipcRenderer.invoke('worktree:resolveConflict', id, path, resolution),
+  rebaseContinue: (id) => ipcRenderer.invoke('worktree:rebaseContinue', id),
+  rebaseAbort: (id) => ipcRenderer.invoke('worktree:rebaseAbort', id),
 
   // Window controls
   windowMinimize: () => {

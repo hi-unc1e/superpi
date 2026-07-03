@@ -2,9 +2,9 @@ import { BrowserWindow, dialog, ipcMain } from 'electron'
 import simpleGit from 'simple-git'
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import type { AgentConfig, AgentDescriptor, AgentKind, GitLogEntry, TerminalAttachResult, WorktreeActionResult, WorktreeDiff, WorktreeGitState, WorkspaceInfo } from '@shared/types'
+import type { AgentConfig, AgentDescriptor, AgentKind, ConflictResolution, GitLogEntry, TerminalAttachResult, WorktreeActionResult, WorktreeDiff, WorktreeGitState, WorkspaceInfo } from '@shared/types'
 import { eventsFileFor, sessionDirFor } from './paths'
-import { commitWorktree, getLog, getWorktreeDiff, getWorktreeGraph, getWorktreeUnifiedDiff, initRepo, mergeWorktreeToMain, rebaseWorktree, resolveMainBranch } from './git'
+import { abortRebase, commitWorktree, continueRebase, getConflictInfo, getLog, getWorktreeDiff, getWorktreeGraph, getWorktreeUnifiedDiff, initRepo, mergeWorktreeToMain, readWorktreeFile, rebaseWorktree, resolveConflictFile, resolveMainBranch } from './git'
 import type { AgentStore } from './agents'
 import type { ConfigStore } from './configs'
 import type { StatusWatcher } from './status'
@@ -191,11 +191,12 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
     const a = c.agents.get(id)
     if (!a) return null
     try {
-      const [graph, diff] = await Promise.all([
+      const [graph, diff, conflicts] = await Promise.all([
         getWorktreeGraph(a.worktreePath, a.branch),
-        getWorktreeDiff(a.worktreePath)
+        getWorktreeDiff(a.worktreePath),
+        getConflictInfo(a.worktreePath)
       ])
-      return { graph, diff }
+      return { graph, diff, conflicts }
     } catch {
       return null
     }
@@ -238,6 +239,49 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
       const main = await resolveMainBranch(a.workspacePath)
       if (!main) return { ok: false, error: 'No main/master branch found to rebase onto.' }
       await rebaseWorktree(a.worktreePath, main)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
+  ipcMain.handle('worktree:readFile', (_e, id: string, path: string): string | null => {
+    const a = c.agents.get(id)
+    if (!a) return null
+    try {
+      return readWorktreeFile(a.worktreePath, path)
+    } catch {
+      return null
+    }
+  })
+
+  ipcMain.handle('worktree:resolveConflict', async (_e, id: string, path: string, resolution: ConflictResolution): Promise<WorktreeActionResult> => {
+    const a = c.agents.get(id)
+    if (!a) return { ok: false, error: `Agent not found: ${id}` }
+    try {
+      await resolveConflictFile(a.worktreePath, path, resolution)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
+  ipcMain.handle('worktree:rebaseContinue', async (_e, id: string): Promise<WorktreeActionResult> => {
+    const a = c.agents.get(id)
+    if (!a) return { ok: false, error: `Agent not found: ${id}` }
+    try {
+      await continueRebase(a.worktreePath)
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) }
+    }
+  })
+
+  ipcMain.handle('worktree:rebaseAbort', async (_e, id: string): Promise<WorktreeActionResult> => {
+    const a = c.agents.get(id)
+    if (!a) return { ok: false, error: `Agent not found: ${id}` }
+    try {
+      await abortRebase(a.worktreePath)
       return { ok: true }
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : String(e) }

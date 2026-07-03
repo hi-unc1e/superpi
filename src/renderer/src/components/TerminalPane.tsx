@@ -1,9 +1,10 @@
 import '@xterm/xterm/css/xterm.css'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { onTermData } from '../lib/terminalBus'
+import { ConflictsPanel } from './ConflictsPanel'
 import { WorktreeHeader } from './WorktreeHeader'
 
 type AttachState = 'loading' | 'self' | 'remote' | 'error'
@@ -19,10 +20,13 @@ export function TerminalPane({
 }) {
   const elRef = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<AttachState>('loading')
+  const [conflictsOpen, setConflictsOpen] = useState(false)
+  const openConflicts = useCallback(() => setConflictsOpen(true), [])
 
   // Resolve attach state on mount / id change.
   useEffect(() => {
     setState('loading')
+    setConflictsOpen(false)
     let cancelled = false
     window.superpi.terminalAttach(id).then((res) => {
       if (cancelled) return
@@ -48,17 +52,22 @@ export function TerminalPane({
     term.loadAddon(fit)
     term.loadAddon(new WebLinksAddon())
     term.open(el)
-    // Defer fit so the DOM layout settles (otherwise offsetWidth/Height may be 0).
-    requestAnimationFrame(() => { try { fit.fit() } catch { /* layout not ready yet */ } })
 
     let disposed = false
 
     window.superpi.terminalAttach(id).then((res) => {
       if (!res || disposed || res.remote) return
+      // Order matters: size xterm to the PTY's true dimensions first, so the
+      // ring replay (full of absolute cursor positioning from the TUI) lands
+      // on the grid it was recorded for. Only then fit to the pane: if the
+      // fitted size differs from the PTY's, the resize reaches the PTY as a
+      // real change (SIGWINCH) and the app repaints; if it matches, the
+      // replay is already correct and no repaint is needed. Replaying into
+      // the default 80x24 grid garbles the screen with no SIGWINCH to fix it.
+      if (res.cols > 0 && res.rows > 0) term.resize(res.cols, res.rows)
       if (res.ring) term.write(res.ring)
-      // NOTE: do NOT term.resize(res.cols, res.rows) here — it would override
-      // the FitAddon's correct sizing with stale PTY defaults, and because the
-      // DOM div doesn't change size, ResizeObserver never fires to fix it.
+      // Defer fit so the DOM layout settles (otherwise offsetWidth/Height may be 0).
+      requestAnimationFrame(() => { try { fit.fit() } catch { /* layout not ready yet */ } })
     })
 
     const offInput = term.onData((d) => window.superpi.terminalInput(id, d))
@@ -99,8 +108,11 @@ export function TerminalPane({
 
   return (
     <div className="flex h-full w-full flex-col">
-      <WorktreeHeader id={id} diffOpen={diffOpen} onToggleDiff={onToggleDiff} />
-      <div className="flex-1 overflow-hidden">{body}</div>
+      <WorktreeHeader id={id} diffOpen={diffOpen} onToggleDiff={onToggleDiff} onOpenConflicts={openConflicts} />
+      <div className="flex min-h-0 flex-1">
+        <div className="flex-1 overflow-hidden">{body}</div>
+        {conflictsOpen && <ConflictsPanel id={id} onClose={() => setConflictsOpen(false)} />}
+      </div>
     </div>
   )
 }

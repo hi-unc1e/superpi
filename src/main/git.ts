@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { join, resolve, sep } from 'node:path'
 import simpleGit from 'simple-git'
- import type { GitLogEntry, WorktreeCommit, WorktreeDiff, WorktreeDiffFile, WorktreeDiffHunk, WorktreeDiffStat, WorktreeGraph } from '@shared/types'
+import type { ConflictInfo, ConflictResolution, GitLogEntry, WorktreeCommit, WorktreeDiff, WorktreeDiffFile, WorktreeDiffHunk, WorktreeDiffStat, WorktreeGraph } from '@shared/types'
 
 
 /** True if <path> is inside a git working tree. */
@@ -239,17 +239,92 @@ export async function mergeWorktreeToMain(
   }
 }
 
-/** Rebase the worktree branch onto main. Aborts on conflict so the tree stays usable. */
+/** True when a rebase is paused in <worktreePath> (interactive or apply backend). */
+export async function isRebasing(worktreePath: string): Promise<boolean> {
+  const git = simpleGit(worktreePath)
+  const dirs = (await git.raw(['rev-parse', '--git-path', 'rebase-merge', '--git-path', 'rebase-apply']))
+    .trim()
+    .split('\n')
+  return dirs.some((d) => existsSync(resolve(worktreePath, d)))
+}
+
+/** Paused-rebase flag + unmerged paths, for the header's Conflicts button. */
+export async function getConflictInfo(worktreePath: string): Promise<ConflictInfo> {
+  const git = simpleGit(worktreePath)
+  const files = (await git.raw(['diff', '--name-only', '--diff-filter=U']))
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+  return { rebasing: await isRebasing(worktreePath), files }
+}
+
+/** Resolve <file> relative to the worktree, rejecting escapes ('..', absolute). */
+function worktreeFilePath(worktreePath: string, file: string): string {
+  const abs = resolve(worktreePath, file)
+  const root = resolve(worktreePath)
+  if (abs !== root && !abs.startsWith(root + sep)) throw new Error(`Path escapes worktree: ${file}`)
+  return abs
+}
+
+/** Read a worktree file (conflict markers included) for the Conflicts panel. */
+export function readWorktreeFile(worktreePath: string, file: string): string {
+  return readFileSync(worktreeFilePath(worktreePath, file), 'utf8')
+}
+
+/** Resolve one conflicted file — keep a side or write final content — and stage it. */
+export async function resolveConflictFile(
+  worktreePath: string,
+  file: string,
+  resolution: ConflictResolution
+): Promise<void> {
+  const abs = worktreeFilePath(worktreePath, file)
+  const git = simpleGit(worktreePath)
+  if (resolution === 'ours' || resolution === 'theirs') {
+    await git.raw(['checkout', `--${resolution}`, '--', file])
+  } else {
+    writeFileSync(abs, resolution.content)
+  }
+  await git.raw(['add', '--', file])
+}
+
+/** Rebase the worktree branch onto main. Agent worktrees are routinely dirty,
+ * so uncommitted changes are stashed around the rebase (--autostash). On
+ * conflict the rebase is left PAUSED for the Conflicts panel to resolve. */
 export async function rebaseWorktree(worktreePath: string, mainBranch: string): Promise<void> {
   const git = simpleGit(worktreePath)
   try {
-    await git.raw(['rebase', mainBranch])
-  } catch {
-    try {
-      await git.raw(['rebase', '--abort'])
-    } catch {
-      /* not in a rebase state */
+    await git.raw(['rebase', '--autostash', mainBranch])
+  } catch (e) {
+    if (await isRebasing(worktreePath)) {
+      throw new Error(`Conflicts replaying onto ${mainBranch} — resolve them in the Conflicts panel.`)
     }
-    throw new Error(`Rebase aborted: conflicts replaying onto ${mainBranch}. Resolve them in the terminal and retry.`)
+    throw new Error(`Rebase failed: ${(e instanceof Error ? e.message : String(e)).trim()}`)
   }
+}
+
+/** Continue a paused rebase after conflicts were staged. core.editor=true (the
+ * no-op binary, a fixed value — hence the unsafe opt-in) keeps the original
+ * commit messages instead of blocking on an editor the main process lacks. */
+export async function continueRebase(worktreePath: string): Promise<void> {
+  const git = simpleGit(worktreePath, { unsafe: { allowUnsafeEditor: true } })
+  let detail = ''
+  try {
+    await git.raw(['-c', 'core.editor=true', 'rebase', '--continue'])
+  } catch (e) {
+    detail = (e instanceof Error ? e.message : String(e)).trim()
+  }
+  // git prints "needs merge" to stdout with an empty stderr, which simple-git
+  // does not treat as a failure — verify completion by state, not exit code.
+  if (!(await isRebasing(worktreePath))) return
+  const { files } = await getConflictInfo(worktreePath)
+  throw new Error(
+    files.length > 0
+      ? `Conflicts remain in ${files.length} file(s) — resolve them all, then continue.`
+      : `Continue failed: ${detail || 'rebase is still in progress.'}`
+  )
+}
+
+/** Abort a paused rebase, restoring the branch (and autostash) as it was. */
+export async function abortRebase(worktreePath: string): Promise<void> {
+  await simpleGit(worktreePath).raw(['rebase', '--abort'])
 }

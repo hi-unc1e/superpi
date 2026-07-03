@@ -127,11 +127,23 @@ export interface WorktreeDiffFile {
 export interface WorktreeDiff {
   files: WorktreeDiffFile[]
 }
+/** Unmerged state of a worktree: paused rebase + conflicted paths. */
+export interface ConflictInfo {
+  /** True when a rebase is paused in this worktree (rebase-merge/rebase-apply exists). */
+  rebasing: boolean
+  /** Paths with unmerged index entries, relative to the worktree root. */
+  files: string[]
+}
+
+/** How to resolve one conflicted file: keep a side wholesale, or provide the
+ * final content (edited by hand in the Conflicts panel). */
+export type ConflictResolution = 'ours' | 'theirs' | { content: string }
 
 /** Snapshot of a worktree's git state for the terminal header. */
 export interface WorktreeGitState {
   graph: WorktreeGraph
   diff: WorktreeDiffStat
+  conflicts: ConflictInfo
 }
 
 /** Outcome of a worktree git action (commit/merge/rebase). The error is returned
@@ -180,6 +192,10 @@ export interface SuperpiAPI {
   commitWorktree(id: string, message: string): Promise<WorktreeActionResult>
   mergeWorktreeToMain(id: string): Promise<WorktreeActionResult>
   rebaseWorktree(id: string): Promise<WorktreeActionResult>
+  readWorktreeFile(id: string, path: string): Promise<string | null>
+  resolveConflict(id: string, path: string, resolution: ConflictResolution): Promise<WorktreeActionResult>
+  rebaseContinue(id: string): Promise<WorktreeActionResult>
+  rebaseAbort(id: string): Promise<WorktreeActionResult>
 
   // Window controls
   windowMinimize(): Promise<void>
