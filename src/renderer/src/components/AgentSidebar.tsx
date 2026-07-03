@@ -12,9 +12,10 @@ interface Props {
   onSelect: (id: string) => void
 }
 
+// `working` is not here: it renders as a marching-ants dashed square (inline
+// SVG below), matching omp's own busy indicator, instead of a colored dot.
 const STATUS_DOT: Record<string, string> = {
   starting: 'bg-zinc-400',
-  working: 'bg-amber-400 animate-pulse',
   idle: 'bg-emerald-400',
   stopped: 'bg-zinc-600',
   error: 'bg-red-500'
@@ -240,6 +241,12 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                   {a.kind === 'terminal' ? (
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-3 w-3 shrink-0 text-zinc-500">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  ) : status === 'working' ? (
+                    <svg viewBox="0 0 8 8" className="h-2 w-2 shrink-0 text-amber-400" aria-label="working">
+                      <rect x="0.75" y="0.75" width="6.5" height="6.5" fill="none" stroke="currentColor" strokeWidth={1.5} strokeDasharray="2 1.25">
+                        <animate attributeName="stroke-dashoffset" from="0" to="-3.25" dur="0.6s" repeatCount="indefinite" />
+                      </rect>
                     </svg>
                   ) : (
                     <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[status] ?? 'bg-zinc-500'}`} />
