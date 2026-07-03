@@ -281,17 +281,15 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                 </div>
                 {/* Row 2 — col 2: terminal (hover) */}
                 <div className="flex items-center justify-end">
-                  {!editing && !confirming && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        spawnTerminalOnAgent(a)
-                      }}
-                      className="invisible text-[11px] text-zinc-500 hover:text-zinc-300 group-hover:visible"
-                    >
-                      terminal
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      spawnTerminalOnAgent(a)
+                    }}
+                    className={`invisible text-[11px] text-zinc-500 hover:text-zinc-300 ${editing || confirming ? '' : 'group-hover:visible'}`}
+                  >
+                    terminal
+                  </button>
                 </div>
 
                 {/* Row 3 — col 1: LoC count (only when there are changes) */}
@@ -305,17 +303,15 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                 </div>
                 {/* Row 3 — col 2: rename (hover) */}
                 <div className="flex items-center justify-end">
-                  {!editing && !confirming && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        startRename(a.id, a.name)
-                      }}
-                      className="invisible text-[11px] text-zinc-500 hover:text-zinc-300 group-hover:visible"
-                    >
-                      rename
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      startRename(a.id, a.name)
+                    }}
+                    className={`invisible text-[11px] text-zinc-500 hover:text-zinc-300 ${editing || confirming ? '' : 'group-hover:visible'}`}
+                  >
+                    rename
+                  </button>
                 </div>
 
                 {/* Row 4 — col 1: worktree branch path (+ inline edit/confirm affordances) */}
@@ -348,17 +344,15 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                 </div>
                 {/* Row 4 — col 2: remove (hover) */}
                 <div className="flex items-center justify-end">
-                  {!editing && !confirming && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setConfirmId(a.id)
-                      }}
-                      className="invisible text-[11px] text-zinc-500 hover:text-red-400 group-hover:visible"
-                    >
-                      remove
-                    </button>
-                  )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setConfirmId(a.id)
+                    }}
+                    className={`invisible text-[11px] text-zinc-500 hover:text-red-400 ${editing || confirming ? '' : 'group-hover:visible'}`}
+                  >
+                    remove
+                  </button>
                 </div>
               </div>
             </div>
