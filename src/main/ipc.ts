@@ -1,7 +1,7 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
 import simpleGit from 'simple-git'
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import type { AgentConfig, AgentDescriptor, AgentKind, ConflictResolution, GitLogEntry, TerminalAttachResult, WorktreeActionResult, WorktreeDiff, WorktreeGitState, WorkspaceInfo } from '@shared/types'
 import { eventsFileFor, sessionDirFor } from './paths'
 import { abortRebase, commitWorktree, continueRebase, getConflictInfo, getLog, getWorktreeDiff, getWorktreeGraph, getWorktreeUnifiedDiff, initRepo, mergeWorktreeToMain, readWorktreeFile, rebaseWorktree, resolveConflictFile, resolveMainBranch } from './git'
@@ -178,9 +178,11 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
       return { ring: '', cols: 100, rows: 30, remote: true }
     }
 
-    // No owner — respawn from the persisted descriptor.
+    // No owner — respawn from the persisted descriptor. A descriptor whose
+    // worktree no longer exists is a stale entry (removed elsewhere): don't
+    // spawn a PTY into a missing cwd.
     const agent = c.agents.get(id)
-    if (!agent) return null
+    if (!agent || !existsSync(agent.worktreePath)) return null
 
     const config = c.configs.get(agent.configId)
     c.terminals.spawn(id, agent.worktreePath, agent.sessionDir, agent.kind, config)

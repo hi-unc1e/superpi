@@ -11,6 +11,19 @@ import { WorkspaceController } from './workspace'
 
 let mainWindow: BrowserWindow | null = null
 
+// Two live instances would clobber each other's ~/.superpi JSON stores (each
+// rewrites the full file from its in-memory state), resurrecting removed
+// agents. Enforce a single instance; a second launch focuses the first.
+if (!app.requestSingleInstanceLock()) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
+  })
+}
+
 const agents = new AgentStore()
 const configs = new ConfigStore()
 const worktrees = new WorktreeManager()
@@ -88,6 +101,11 @@ app.whenReady().then(async () => {
     // re-attach status watchers so they come back to life on launch.
     for (const agent of agents.list()) {
       if (terminals.has(agent.id) || terminals.isOwnedByOther(agent.id)) continue
+      // Stale descriptor (worktree removed elsewhere) — nothing to revive.
+      if (!existsSync(agent.worktreePath)) {
+        status.markStopped(agent.id)
+        continue
+      }
       try {
         const config = configs.get(agent.configId) ?? configs.default()
         terminals.spawn(agent.id, agent.worktreePath, agent.sessionDir, agent.kind, config, 100, 30, true)

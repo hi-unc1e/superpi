@@ -1,6 +1,6 @@
 import * as pty from 'node-pty'
 import { EventEmitter } from 'node:events'
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import type { AgentConfig, AgentKind } from '@shared/types'
 import { buildPiLaunchConfig, buildPiShellCommand, buildPlainShellCommand, sanitizeEnv } from './pi'
 import { lockFileFor } from './paths'
@@ -63,6 +63,9 @@ export class TerminalManager extends EventEmitter {
 
     const entry: PtyEntry = { pty: p, ring: '' }
     const lockPath = lockFileFor(id)
+    // The session dir may have been cleaned up (agent removed elsewhere,
+    // stale descriptor) — recreate it rather than crash on the lock write.
+    mkdirSync(sessionDir, { recursive: true })
     writeFileSync(lockPath, String(process.pid))
     p.onData((data) => {
       entry.ring = (entry.ring + data).slice(-RING_CAP)
