@@ -41,6 +41,17 @@ export function App() {
     setTodoAgentId(null)
   }, [workspace?.path])
 
+  // Pull status snapshots for agents we have no push for yet: `status:changed`
+  // emitted before the window existed (startup revive) never reaches us.
+  useEffect(() => {
+    for (const a of agents) {
+      if (statuses[a.id]) continue
+      window.superpi.getStatus(a.id).then((info) => {
+        if (info) setStatuses((prev) => ({ ...prev, [info.agentId]: info }))
+      })
+    }
+  }, [agents])
+
   useEffect(() => {
     if (activeId && !agents.some((a) => a.id === activeId)) setActiveId(agents[0]?.id ?? null)
     else if (!activeId && agents.length > 0) setActiveId(agents[0].id)
