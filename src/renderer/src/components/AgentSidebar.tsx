@@ -223,76 +223,53 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
           const confirming = confirmId === a.id
           const editing = editingId === a.id
           const diff = gitStates[a.id]?.diff
+          const phases = statuses[a.id]?.todoPhases ?? []
+          const totalTasks = phases.reduce((n, p) => n + p.tasks.length, 0)
+          const doneTasks = phases.reduce((n, p) => n + p.tasks.filter((t) => t.status === 'completed').length, 0)
           return (
             <div
               key={a.id}
               onClick={() => { if (!editing) onSelect(a.id) }}
-              className={`group relative cursor-pointer border-l-2 px-4 py-4 ${
+              className={`group cursor-pointer border-l-2 px-4 py-3 ${
                 active ? 'border-emerald-400 bg-zinc-800' : 'border-transparent hover:bg-zinc-800/60'
-              } ${editing || confirming ? '' : 'group-hover:pr-16'}`}
+              }`}
             >
-              <div className="flex items-center gap-2">
-                {a.kind === 'terminal' ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-3 w-3 shrink-0 text-zinc-500">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-                  </svg>
-                ) : (
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[status] ?? 'bg-zinc-500'}`} />
-                )}
-                {editing ? (
-                  <input
-                    ref={inputRef}
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveRename(a.id)
-                      if (e.key === 'Escape') setEditingId(null)
-                    }}
-                    onBlur={() => saveRename(a.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-full bg-zinc-800 text-sm text-zinc-100 outline-none"
-                    maxLength={80}
-                  />
-                ) : (
-                  <span className="truncate text-sm text-zinc-100">{a.name}</span>
-                )}
-              </div>
-              {diff?.hasChanges && (
-                <div className="mt-0.5 flex items-center gap-1 font-mono text-[11px]">
-                  <span className="text-emerald-400">+{diff.added}</span>
-                  <span className="text-red-400">−{diff.deleted}</span>
+              {/* DEV-GRID: temporary visible cell borders for the layout phase — delete this
+                  [&>*] border styling (and this comment) once the design settles. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 [&>*]:border [&>*]:border-dashed [&>*]:border-fuchsia-500/40">
+                {/* Row 1 — col 1: status dot + name (or rename input) */}
+                <div className="flex min-w-0 items-center gap-2">
+                  {a.kind === 'terminal' ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-3 w-3 shrink-0 text-zinc-500">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+                    </svg>
+                  ) : (
+                    <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[status] ?? 'bg-zinc-500'}`} />
+                  )}
+                  {editing ? (
+                    <input
+                      ref={inputRef}
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveRename(a.id)
+                        if (e.key === 'Escape') setEditingId(null)
+                      }}
+                      onBlur={() => saveRename(a.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full bg-zinc-800 text-sm text-zinc-100 outline-none"
+                      maxLength={80}
+                    />
+                  ) : (
+                    <span className="truncate text-sm text-zinc-100">{a.name}</span>
+                  )}
                 </div>
-              )}
-              <div className="mt-0.5 flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-500" title={a.branch}>{a.branch}</span>
-                {editing && <span className="shrink-0 text-[11px] text-zinc-500">enter to save</span>}
-                {confirming && (
-                  <span className="flex shrink-0 items-center gap-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        window.superpi.removeAgent(a.id)
-                        setConfirmId(null)
-                      }}
-                      className="text-[11px] text-red-400 hover:underline"
-                    >
-                      delete?
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setConfirmId(null)
-                      }}
-                      className="text-[11px] text-zinc-400 hover:underline"
-                    >
-                      cancel
-                    </button>
-                  </span>
-                )}
-              </div>
-              {!editing && !confirming && (
-                <div className={`absolute right-2 top-4 flex-col items-end gap-1 ${todoAgentId === a.id ? 'flex' : 'hidden group-hover:flex'}`}>
-                  {a.kind !== 'terminal' && (
+                {/* Row 1 — col 2: empty */}
+                <div />
+
+                {/* Row 2 — col 1: task progress (only when the agent has todos); toggles the panel */}
+                <div className="flex items-center">
+                  {totalTasks > 0 && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -300,38 +277,92 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                       }}
                       className={`text-[11px] hover:text-zinc-300 ${todoAgentId === a.id ? 'text-emerald-400' : 'text-zinc-500'}`}
                     >
-                      todos
+                      Tasks: {doneTasks}/{totalTasks}
                     </button>
                   )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      spawnTerminalOnAgent(a)
-                    }}
-                    className="text-[11px] text-zinc-500 hover:text-zinc-300"
-                  >
-                    terminal
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      startRename(a.id, a.name)
-                    }}
-                    className="text-[11px] text-zinc-500 hover:text-zinc-300"
-                  >
-                    rename
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setConfirmId(a.id)
-                    }}
-                    className="text-[11px] text-zinc-500 hover:text-red-400"
-                  >
-                    remove
-                  </button>
                 </div>
-              )}
+                {/* Row 2 — col 2: terminal (hover) */}
+                <div className="flex items-center justify-end">
+                  {!editing && !confirming && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        spawnTerminalOnAgent(a)
+                      }}
+                      className="invisible text-[11px] text-zinc-500 hover:text-zinc-300 group-hover:visible"
+                    >
+                      terminal
+                    </button>
+                  )}
+                </div>
+
+                {/* Row 3 — col 1: LoC count (only when there are changes) */}
+                <div className="flex items-center">
+                  {diff?.hasChanges && (
+                    <span className="flex items-center gap-1 font-mono text-[11px]">
+                      <span className="text-emerald-400">+{diff.added}</span>
+                      <span className="text-red-400">−{diff.deleted}</span>
+                    </span>
+                  )}
+                </div>
+                {/* Row 3 — col 2: rename (hover) */}
+                <div className="flex items-center justify-end">
+                  {!editing && !confirming && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        startRename(a.id, a.name)
+                      }}
+                      className="invisible text-[11px] text-zinc-500 hover:text-zinc-300 group-hover:visible"
+                    >
+                      rename
+                    </button>
+                  )}
+                </div>
+
+                {/* Row 4 — col 1: worktree branch path (+ inline edit/confirm affordances) */}
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-500" title={a.branch}>{a.branch}</span>
+                  {editing && <span className="shrink-0 text-[11px] text-zinc-500">enter to save</span>}
+                  {confirming && (
+                    <span className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          window.superpi.removeAgent(a.id)
+                          setConfirmId(null)
+                        }}
+                        className="text-[11px] text-red-400 hover:underline"
+                      >
+                        delete?
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setConfirmId(null)
+                        }}
+                        className="text-[11px] text-zinc-400 hover:underline"
+                      >
+                        cancel
+                      </button>
+                    </span>
+                  )}
+                </div>
+                {/* Row 4 — col 2: remove (hover) */}
+                <div className="flex items-center justify-end">
+                  {!editing && !confirming && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setConfirmId(a.id)
+                      }}
+                      className="invisible text-[11px] text-zinc-500 hover:text-red-400 group-hover:visible"
+                    >
+                      remove
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )
         })}
