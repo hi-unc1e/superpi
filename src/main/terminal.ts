@@ -8,6 +8,9 @@ import { lockFileFor } from './paths'
 /** Max bytes of scrollback retained per agent for replay on (re)attach. */
 const RING_CAP = 64 * 1024
 
+/** Batch window for forwarding PTY output to the renderer (~1 frame). */
+const FLUSH_MS = 16
+
 interface PtyEntry {
   pty: pty.IPty
   ring: string
@@ -20,6 +23,11 @@ interface PtyEntry {
  */
 export class TerminalManager extends EventEmitter {
   private entries = new Map<string, PtyEntry>()
+  /** Agent whose terminal the renderer is currently viewing. Output from all
+   * other agents lands only in their ring buffers — no IPC traffic. */
+  private attached: string | null = null
+  private pending = ''
+  private flushTimer: NodeJS.Timeout | null = null
 
   spawn(
     id: string,
@@ -58,7 +66,10 @@ export class TerminalManager extends EventEmitter {
     writeFileSync(lockPath, String(process.pid))
     p.onData((data) => {
       entry.ring = (entry.ring + data).slice(-RING_CAP)
-      this.emit('data', id, data)
+      if (id === this.attached) {
+        this.pending += data
+        this.scheduleFlush()
+      }
     })
     p.onExit(({ exitCode }) => {
       try { unlinkSync(lockPath) } catch { /* already gone */ }
@@ -70,6 +81,27 @@ export class TerminalManager extends EventEmitter {
 
   ring(id: string): string {
     return this.entries.get(id)?.ring ?? ''
+  }
+
+  /** Marks the agent whose output is forwarded to the renderer. Pending output
+   * is dropped: it is already contained in the ring snapshot the renderer
+   * replays on attach, so re-sending it would duplicate bytes. */
+  setAttached(id: string | null): void {
+    this.attached = id
+    this.pending = ''
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer)
+      this.flushTimer = null
+    }
+  }
+
+  private scheduleFlush(): void {
+    if (this.flushTimer) return
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null
+      if (this.attached && this.pending) this.emit('data', this.attached, this.pending)
+      this.pending = ''
+    }, FLUSH_MS)
   }
 
   size(id: string): { cols: number; rows: number } | null {

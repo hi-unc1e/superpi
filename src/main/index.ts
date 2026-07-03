@@ -32,10 +32,6 @@ function folderFromArgv(argv: string[]): string | null {
   return null
 }
 
-// Silences the Chromium "GetVSyncParametersIfAvailable() failed" spam; a
-// terminal-focused app has no need for GPU compositing.
-app.disableHardwareAcceleration()
-
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: 1280,

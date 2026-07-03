@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { WebglAddon } from '@xterm/addon-webgl'
 import { onTermData } from '../lib/terminalBus'
 import { ConflictsPanel } from './ConflictsPanel'
 import { WorktreeHeader } from './WorktreeHeader'
@@ -52,6 +53,12 @@ export function TerminalPane({
     term.loadAddon(fit)
     term.loadAddon(new WebLinksAddon())
     term.open(el)
+    // GPU renderer; on context loss (or no WebGL2) fall back to the DOM renderer.
+    try {
+      const webgl = new WebglAddon()
+      webgl.onContextLoss(() => webgl.dispose())
+      term.loadAddon(webgl)
+    } catch { /* WebGL unavailable — DOM renderer */ }
 
     let disposed = false
 

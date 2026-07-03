@@ -163,12 +163,18 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
     c.terminals.resize(id, cols, rows)
   )
   ipcMain.handle('terminal:attach', (_e, id: string): TerminalAttachResult | null => {
+    // Forwarding follows the viewed terminal: attaching switches it, and the
+    // ring snapshot returned below covers everything sent so far.
     // Already have a PTY? Return current state.
     const size = c.terminals.size(id)
-    if (size) return { ring: c.terminals.ring(id), cols: size.cols, rows: size.rows, remote: false }
+    if (size) {
+      c.terminals.setAttached(id)
+      return { ring: c.terminals.ring(id), cols: size.cols, rows: size.rows, remote: false }
+    }
 
     // No PTY. Another instance owns it? Tell the renderer.
     if (c.terminals.isOwnedByOther(id)) {
+      c.terminals.setAttached(null)
       return { ring: '', cols: 100, rows: 30, remote: true }
     }
 
@@ -182,6 +188,7 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
 
     const sz = c.terminals.size(id)
     if (!sz) return null
+    c.terminals.setAttached(id)
     return { ring: c.terminals.ring(id), cols: sz.cols, rows: sz.rows, remote: false }
   })
   ipcMain.handle('status:get', (_e, id: string) => c.status.snapshot(id))

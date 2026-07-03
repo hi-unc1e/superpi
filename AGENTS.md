@@ -53,7 +53,7 @@ is a *different* checkout and **MUST NOT be modified directly**.
 |Area|Files|Owns|
 |---|---|---|
 |Contract|`src/shared/types.ts`|all IPC types + `SuperpiAPI`|
-|Main bootstrap|`main/index.ts`|window, `disableHardwareAcceleration()`, argv→workspace, event wiring|
+|Main bootstrap|`main/index.ts`|window, argv→workspace, event wiring|
 |IPC|`main/ipc.ts`|handlers for workspace/agent/config/terminal/status|
 |State|`main/workspace.ts`, `agents.ts`, `configs.ts`|controllers + JSON persistence in `~/.superpi/`|
 |Git|`main/worktree.ts`, `git.ts`|worktree add/remove, repo check, `git init`|
