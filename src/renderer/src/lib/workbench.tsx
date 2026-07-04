@@ -3,6 +3,11 @@ import { createContext, useContext, useMemo, useReducer, type ReactNode } from '
 /** Auxiliary panels that can be opened per tab. */
 export type PanelKind = 'diff' | 'conflicts' | 'todo' | 'gitlog'
 
+/** Reserved tab id for the Configs pane. Agent tab ids are UUIDs, so no
+ * collision. Callers of pruneTabs must include it in `alive` when the tab
+ * should survive pruning. */
+export const CONFIGS_TAB_ID = 'superpi:configs'
+
 /** Tabs (open agent terminals) + per-tab panel visibility. The single owner of
  * "what is open" in the main pane: components open/close tabs and panels only
  * through the useWorkbench() API, never via ad-hoc local state. */

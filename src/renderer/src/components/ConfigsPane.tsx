@@ -4,7 +4,7 @@ import type { AgentConfig } from '@shared/types'
 
 const EMPTY: AgentConfig = { id: 'new', name: '', isDefault: false }
 
-export function ConfigsDialog({ onClose }: { onClose: () => void }) {
+export function ConfigsPane() {
   const [configs, setConfigs] = useState<AgentConfig[]>([])
   const [editId, setEditId] = useState<string | null>(null)
   const [draft, setDraft] = useState<AgentConfig>(EMPTY)
@@ -45,11 +45,7 @@ export function ConfigsDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div
-        className="flex h-[540px] w-[680px] overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="flex h-full w-full overflow-hidden bg-zinc-900">
         <div className="w-48 shrink-0 border-r border-zinc-800">
           <div className="flex items-center justify-between px-3 py-3">
             <span className="text-xs font-semibold uppercase text-zinc-400">Configs</span>
@@ -152,14 +148,8 @@ export function ConfigsDialog({ onClose }: { onClose: () => void }) {
               </div>
             </div>
           )}
-          <div className="flex justify-end border-t border-zinc-800 p-3">
-            <button onClick={onClose} className="rounded px-3 py-1 text-sm text-zinc-300 hover:bg-zinc-800">
-              Close
-            </button>
-          </div>
         </div>
       </div>
-    </div>
   )
 }
 

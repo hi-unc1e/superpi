@@ -8,7 +8,8 @@ import { TerminalPane } from './components/TerminalPane'
 import { TodoPanel } from './components/TodoPanel'
 import { StatusBar } from './components/StatusBar'
 import { emitTermData } from './lib/terminalBus'
-import { useWorkbench } from './lib/workbench'
+import { CONFIGS_TAB_ID, useWorkbench } from './lib/workbench'
+import { ConfigsPane } from './components/ConfigsPane'
 
 
 export function App() {
@@ -59,7 +60,7 @@ export function App() {
   // Close tabs of removed agents; auto-open a tab for the first agent after a
   // workspace load and for each newly created agent.
   useEffect(() => {
-    pruneTabs(agents.map((a) => a.id))
+    pruneTabs([...agents.map((a) => a.id), CONFIGS_TAB_ID])
     const seen = seenAgentsRef.current
     seenAgentsRef.current = new Set(agents.map((a) => a.id))
     if (agents.length === 0) return
@@ -102,7 +103,9 @@ export function App() {
         <main className="flex flex-1 flex-col overflow-hidden">
           <TabStrip agents={agents} statuses={statuses} />
           <div className="flex flex-1 overflow-hidden">
-            {active ? (
+            {activeTabId === CONFIGS_TAB_ID ? (
+              <ConfigsPane />
+            ) : active ? (
               <TerminalPane key={active.id} id={active.id} />
             ) : (
               <div className="flex flex-1 items-center justify-center text-zinc-500">

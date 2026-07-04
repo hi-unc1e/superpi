@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { AgentDescriptor, AgentStatusInfo, GitLogEntry, WorktreeGitState, WorkspaceInfo } from '@shared/types'
-import { ConfigsDialog } from './ConfigsDialog'
-import { useWorkbench } from '../lib/workbench'
+import { CONFIGS_TAB_ID, useWorkbench } from '../lib/workbench'
 
 interface Props {
   workspace: WorkspaceInfo
@@ -27,7 +26,7 @@ const GIT_POLL_MS = 3000
 
 export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentId, onToggleTodos, onSelect }: Props) {
   const [creating, setCreating] = useState(false)
-  const [configsOpen, setConfigsOpen] = useState(false)
+  const { openTab } = useWorkbench()
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
@@ -327,7 +326,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
           </div>
         </div>
         <button
-          onClick={() => setConfigsOpen(true)}
+          onClick={() => openTab(CONFIGS_TAB_ID)}
           className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800"
         >
           <svg
@@ -539,7 +538,6 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
         </div>
       )}
 
-      {configsOpen && <ConfigsDialog onClose={() => setConfigsOpen(false)} />}
     </aside>
   )
 }

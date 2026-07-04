@@ -1,5 +1,5 @@
 import type { AgentDescriptor, AgentStatusInfo } from '@shared/types'
-import { useWorkbench } from '../lib/workbench'
+import { CONFIGS_TAB_ID, useWorkbench } from '../lib/workbench'
 
 // Unlike the sidebar's STATUS_DOT (which renders `working` as a marching-ants
 // SVG), tabs are too small for an animated indicator — `working` gets a dot.
@@ -25,8 +25,8 @@ export function TabStrip({
   return (
     <div className="flex shrink-0 items-center overflow-x-auto border-b border-zinc-800 bg-zinc-950 text-xs">
       {tabs.map((id) => {
-        const agent = agents.find((a) => a.id === id)
-        if (!agent) return null
+        const agent = id === CONFIGS_TAB_ID ? null : agents.find((a) => a.id === id)
+        if (id !== CONFIGS_TAB_ID && !agent) return null
         const status = statuses[id]?.status ?? 'starting'
         const active = id === activeTabId
         return (
@@ -36,15 +36,17 @@ export function TabStrip({
             onAuxClick={(e) => {
               if (e.button === 1) closeTab(id)
             }}
-            title={agent.branch}
+            title={agent?.branch}
             className={`group flex shrink-0 cursor-pointer select-none items-center gap-2 border-r border-zinc-800 px-3 py-1.5 ${
               active
                 ? 'bg-zinc-900 text-zinc-200'
                 : 'text-zinc-500 hover:bg-zinc-900/60 hover:text-zinc-300'
             }`}
           >
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TAB_DOT[status] ?? 'bg-zinc-500'}`} />
-            <span className="max-w-40 truncate">{agent.name}</span>
+            {agent && (
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TAB_DOT[status] ?? 'bg-zinc-500'}`} />
+            )}
+            <span className="max-w-40 truncate">{agent ? agent.name : 'Config'}</span>
             <button
               type="button"
               aria-label="Close tab"
