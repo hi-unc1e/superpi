@@ -132,8 +132,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
   async function openGitLogInTab(): Promise<void> {
     const entries = await fetchGitLog()
     const html = renderGitLogHtml(entries)
-    const blob = new Blob([html], { type: 'text/html' })
-    const url = URL.createObjectURL(blob)
+    const url = 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
     window.open(url, '_blank')
   }
 
