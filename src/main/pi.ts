@@ -1,6 +1,10 @@
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { eventsFileFor } from './paths'
 import { monitorHookPath } from './resources'
-import type { AgentConfig } from '@shared/types'
+import type { AgentConfig, ModelOption } from '@shared/types'
+
+const execFileAsync = promisify(execFile)
 
 export interface PiLaunchConfig {
   /** argv passed to `pi`. */
@@ -52,6 +56,32 @@ export function buildPiShellCommand(args: string[]): string {
 /** Builds a plain login shell command for terminal agents (no omp). */
 export function buildPlainShellCommand(): string {
   return 'exec "$SHELL" -l'
+}
+
+/** In-flight/settled catalog fetch; cleared on failure so a retry can succeed. */
+let modelsPromise: Promise<ModelOption[]> | null = null
+
+/**
+ * Lists models known to the agent binary via `omp models --json`, run through
+ * a login shell so PATH matches how agents themselves are launched. Cached for
+ * the process lifetime — the catalog only changes on `omp models refresh`.
+ */
+export function listModels(): Promise<ModelOption[]> {
+  modelsPromise ??= execFileAsync('sh', ['-lc', AGENT_BIN + ' models --json'], {
+    maxBuffer: 16 * 1024 * 1024,
+    timeout: 30_000
+  }).then(
+    ({ stdout }) => {
+      const parsed = JSON.parse(stdout) as { models?: ModelOption[] }
+      return (parsed.models ?? []).map(({ provider, id, selector, name }) => ({ provider, id, selector, name }))
+    },
+    (err) => {
+      console.error('[superpi] omp models --json failed:', err)
+      modelsPromise = null
+      return []
+    }
+  )
+  return modelsPromise
 }
 
 /** Split a user-typed arg string respecting simple single/double quoting. */

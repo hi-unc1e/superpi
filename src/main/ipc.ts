@@ -11,6 +11,7 @@ import type { StatusWatcher } from './status'
 import type { TerminalManager } from './terminal'
 import { type WorktreeManager, linkNodeModules } from './worktree'
 import type { WorkspaceController } from './workspace'
+import { listModels } from './pi'
 
 export interface Ctx {
   agents: AgentStore
@@ -156,6 +157,7 @@ export function registerIpc(_win: BrowserWindow, c: Ctx): void {
   ipcMain.handle('config:default', () => c.configs.default())
   ipcMain.handle('config:save', (_e, cfg: AgentConfig) => c.configs.save(cfg))
   ipcMain.handle('config:delete', (_e, id: string) => c.configs.delete(id))
+  ipcMain.handle('models:list', () => listModels())
 
   // ---- Terminal + status ----
   ipcMain.on('terminal:input', (_e, id: string, data: string) => c.terminals.write(id, data))

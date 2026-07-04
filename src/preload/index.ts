@@ -35,6 +35,7 @@ const api: SuperpiAPI = {
   saveConfig: (cfg) => ipcRenderer.invoke('config:save', cfg),
   deleteConfig: (id) => ipcRenderer.invoke('config:delete', id),
   getDefaultConfig: () => ipcRenderer.invoke('config:default'),
+  listModels: () => ipcRenderer.invoke('models:list'),
 
   // Terminal + status
   terminalAttach: (id) => ipcRenderer.invoke('terminal:attach', id),

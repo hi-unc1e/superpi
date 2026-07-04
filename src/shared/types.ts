@@ -79,6 +79,17 @@ export interface AgentConfig {
   isDefault?: boolean
 }
 
+/** One model available to the agent binary, from `omp models --json`. */
+export interface ModelOption {
+  provider: string
+  /** Model id within the provider (e.g. claude-sonnet-4). */
+  id: string
+  /** Full `provider/id` selector accepted by --model. */
+  selector: string
+  /** Human-readable display name. */
+  name: string
+}
+
 /** A single git commit entry returned by gitLog. */
 export interface GitLogEntry {
   hash: string
@@ -194,6 +205,9 @@ export interface SuperpiAPI {
   saveConfig(cfg: AgentConfig): Promise<AgentConfig>
   deleteConfig(id: string): Promise<AgentConfig[]>
   getDefaultConfig(): Promise<AgentConfig>
+  /** Models available to the agent binary, for the config Model autocomplete.
+   * Cached in main; empty array when the catalog can't be read. */
+  listModels(): Promise<ModelOption[]>
 
   // Terminal + status
   terminalAttach(id: string): Promise<TerminalAttachResult | null>

@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { AgentConfig } from '@shared/types'
+import type { AgentConfig, ModelOption } from '@shared/types'
 
 const EMPTY: AgentConfig = { id: 'new', name: '', isDefault: false }
 
 export function ConfigsPane() {
   const [configs, setConfigs] = useState<AgentConfig[]>([])
+  const [models, setModels] = useState<ModelOption[]>([])
   const [editId, setEditId] = useState<string | null>(null)
   const [draft, setDraft] = useState<AgentConfig>(EMPTY)
 
   useEffect(() => {
     refresh()
+    window.superpi.listModels().then(setModels)
   }, [])
 
   async function refresh(): Promise<void> {
@@ -89,8 +91,16 @@ export function ConfigsPane() {
                 <input
                   value={draft.model ?? ''}
                   onChange={(e) => setDraft({ ...draft, model: e.target.value })}
+                  list="superpi-models"
                   className="w-full rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none"
                 />
+                <datalist id="superpi-models">
+                  {models.map((m) => (
+                    <option key={m.selector} value={m.selector}>
+                      {m.name}
+                    </option>
+                  ))}
+                </datalist>
               </Field>
               <Field label="Thinking (optional)" hint="off | minimal | low | medium | high | xhigh">
                 <input
