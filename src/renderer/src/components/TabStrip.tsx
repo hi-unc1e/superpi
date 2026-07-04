@@ -1,5 +1,5 @@
 import type { AgentDescriptor, AgentStatusInfo } from '@shared/types'
-import { CONFIGS_TAB_ID, useWorkbench } from '../lib/workbench'
+import { CONFIGS_TAB_ID, GITLOG_TAB_ID, useWorkbench } from '../lib/workbench'
 
 // Unlike the sidebar's STATUS_DOT (which renders `working` as a marching-ants
 // SVG), tabs are too small for an animated indicator — `working` gets a dot.
@@ -9,6 +9,12 @@ const TAB_DOT: Record<string, string> = {
   idle: 'bg-emerald-400',
   stopped: 'bg-zinc-600',
   error: 'bg-red-500'
+}
+
+/** Labels for the reserved non-agent tabs; anything else is an agent id. */
+const SPECIAL_TAB_LABEL: Record<string, string> = {
+  [CONFIGS_TAB_ID]: 'Config',
+  [GITLOG_TAB_ID]: 'Git log'
 }
 
 /** Tab bar above the terminal pane: one tab per open agent. Click activates,
@@ -25,8 +31,9 @@ export function TabStrip({
   return (
     <div className="flex shrink-0 items-center overflow-x-auto border-b border-zinc-800 bg-zinc-950 text-xs">
       {tabs.map((id) => {
-        const agent = id === CONFIGS_TAB_ID ? null : agents.find((a) => a.id === id)
-        if (id !== CONFIGS_TAB_ID && !agent) return null
+        const special = SPECIAL_TAB_LABEL[id]
+        const agent = special ? null : agents.find((a) => a.id === id)
+        if (!special && !agent) return null
         const status = statuses[id]?.status ?? 'starting'
         const active = id === activeTabId
         return (
@@ -46,7 +53,7 @@ export function TabStrip({
             {agent && (
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TAB_DOT[status] ?? 'bg-zinc-500'}`} />
             )}
-            <span className="max-w-40 truncate">{agent ? agent.name : 'Config'}</span>
+            <span className="max-w-40 truncate">{agent ? agent.name : special}</span>
             <button
               type="button"
               aria-label="Close tab"

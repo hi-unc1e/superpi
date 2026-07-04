@@ -8,8 +8,9 @@ import { TerminalPane } from './components/TerminalPane'
 import { TodoPanel } from './components/TodoPanel'
 import { StatusBar } from './components/StatusBar'
 import { emitTermData } from './lib/terminalBus'
-import { CONFIGS_TAB_ID, useWorkbench } from './lib/workbench'
+import { CONFIGS_TAB_ID, GITLOG_TAB_ID, useWorkbench } from './lib/workbench'
 import { ConfigsPane } from './components/ConfigsPane'
+import { GitLogPane } from './components/GitLogPanel'
 
 
 export function App() {
@@ -60,7 +61,7 @@ export function App() {
   // Close tabs of removed agents; auto-open a tab for the first agent after a
   // workspace load and for each newly created agent.
   useEffect(() => {
-    pruneTabs([...agents.map((a) => a.id), CONFIGS_TAB_ID])
+    pruneTabs([...agents.map((a) => a.id), CONFIGS_TAB_ID, GITLOG_TAB_ID])
     const seen = seenAgentsRef.current
     seenAgentsRef.current = new Set(agents.map((a) => a.id))
     if (agents.length === 0) return
@@ -105,6 +106,8 @@ export function App() {
           <div className="flex flex-1 overflow-hidden">
             {activeTabId === CONFIGS_TAB_ID ? (
               <ConfigsPane />
+            ) : activeTabId === GITLOG_TAB_ID ? (
+              <GitLogPane />
             ) : active ? (
               <TerminalPane key={active.id} id={active.id} />
             ) : (

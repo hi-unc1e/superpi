@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { AgentDescriptor, AgentStatusInfo, GitLogEntry, WorktreeGitState, WorkspaceInfo } from '@shared/types'
-import { CONFIGS_TAB_ID, useWorkbench } from '../lib/workbench'
+import { CONFIGS_TAB_ID, GITLOG_TAB_ID, useWorkbench } from '../lib/workbench'
 
 interface Props {
   workspace: WorkspaceInfo
@@ -26,7 +26,6 @@ const GIT_POLL_MS = 3000
 
 export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentId, onToggleTodos, onSelect }: Props) {
   const [creating, setCreating] = useState(false)
-  const { openTab } = useWorkbench()
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draftName, setDraftName] = useState('')
@@ -35,7 +34,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
   const [gitLogLoading, setGitLogLoading] = useState(false)
   const [gitStates, setGitStates] = useState<Record<string, WorktreeGitState>>({})
   const inputRef = useRef<HTMLInputElement>(null)
-  const { openPanel } = useWorkbench()
+  const { openTab, openPanel } = useWorkbench()
 
   useEffect(() => {
     if (editingId) inputRef.current?.select()
@@ -129,40 +128,11 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
     }
   }
 
-  async function openGitLogInTab(): Promise<void> {
-    const entries = await fetchGitLog()
-    const html = renderGitLogHtml(entries)
-    const url = 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
-    window.open(url, '_blank')
-  }
-
-  async function openGitLogInPanel(): Promise<void> {
+  function openGitLogInPanel(): void {
     if (!activeId) return
-    await fetchGitLog()
     openPanel(activeId, 'gitlog')
   }
 
-
-  function esc(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-  }
-  function renderGitLogHtml(entries: GitLogEntry[]): string {
-    const rows = entries.map((e) => {
-      const refs = e.refs ? '<span style="color:#34d399;font-family:monospace;font-size:11px">' + esc(e.refs.replace('HEAD -> ', '').replace(', ', ' ')) + '</span>' : ''
-      return '<div style="padding:6px 0;border-bottom:1px solid #27272a">' +
-        '<div style="display:flex;gap:6px;align-items:flex-start">' +
-        '<span style="color:#f59e0b;font-family:monospace;font-size:11px;flex-shrink:0">' + esc(e.hash.slice(0, 7)) + '</span>' +
-        refs +
-        '</div>' +
-        '<div style="color:#e4e4e7;font-size:12px;margin-top:2px;line-height:1.3">' + esc(e.message) + '</div>' +
-        '<div style="color:#71717a;font-size:10px;margin-top:2px">' + esc(e.author) + ' &middot; ' + esc(e.date.slice(0, 10)) + '</div>' +
-        '</div>'
-    }).join('')
-    return '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Git log</title>' +
-      '<style>body{background:#09090b;color:#a1a1aa;font:13px/1.5 system-ui,sans-serif;max-width:720px;margin:32px auto;padding:0 24px}' +
-      'h1{color:#e4e4e7;font-size:14px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px}' +
-      '</style></head><body><h1>Git log</h1>' + (rows || '<p>No commits yet.</p>') + '</body></html>'
-  }
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-zinc-800 bg-zinc-900">
       <div className="px-4 py-3">
@@ -305,7 +275,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
               </svg>
             </button>
             <button
-              onClick={openGitLogInTab}
+              onClick={() => openTab(GITLOG_TAB_ID)}
               title="Open in new tab"
               className="rounded p-0.5 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200"
             >

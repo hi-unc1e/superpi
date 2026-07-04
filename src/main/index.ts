@@ -70,11 +70,6 @@ function createWindow(): BrowserWindow {
     mainWindow = null
   })
   win.webContents.setWindowOpenHandler(({ url }) => {
-    // data: / blob: URLs are renderer-local; open them in a new Electron
-    // window. External URLs go to the system browser.
-    if (url.startsWith('data:') || url.startsWith('blob:')) {
-      return { action: 'allow' }
-    }
     shell.openExternal(url)
     return { action: 'deny' }
   })
