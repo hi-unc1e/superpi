@@ -20,7 +20,11 @@ export function Welcome() {
   return (
     <div className="flex h-full w-full items-center justify-center bg-zinc-950">
       <div className="max-w-lg text-center">
-        <h1 className="mb-3 text-2xl font-bold text-zinc-100">superpi</h1>
+        <h1 className="mb-3 text-2xl font-bold text-zinc-100">
+          <code className="font-mono">omp</code>
+          <span className="text-zinc-500">/</span>
+          <code className="font-mono">pi</code>
+        </h1>
         <p className="mb-6 text-sm text-zinc-400">
           A worktree + terminal manager for oh-my-pi. Open a folder to launch parallel agents —
           each in its own git worktree.
