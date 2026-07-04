@@ -62,6 +62,7 @@ is a *different* checkout and **MUST NOT be modified directly**.
 |Launch|`main/pi.ts`, `resources.ts`|`omp` argv/env (`SUPERPI_*`), monitor-hook path|
 |Preload|`preload/index.ts`|`contextBridge.exposeInMainWorld('superpi', …)`|
 |Renderer|`renderer/src/*`|React UI; `App.tsx` routes Welcome → GitInitBanner → workspace|
+|Workbench|`renderer/src/lib/workbench.tsx`|tabs + per-tab panel state (context + pure reducer)|
 
 ## Conventions (enforced project rules)
 
@@ -80,6 +81,15 @@ Other conventions:
 - **Terminal I/O uses `ipcRenderer.send`** (fire-and-forget, latency-sensitive); everything else uses `invoke`.
 - **Icons are inlined SVG** in the components that use them (no icon dependency, no one-line wrapper components).
 - **Tailwind** for all styling; dark `zinc` palette. No CSS files except `index.css` (Tailwind directives).
+- **Tabs & panels go through `useWorkbench()`** (`renderer/src/lib/workbench.tsx`) — the single owner
+  of "what is open" in the main pane. `openTab/closeTab/activateTab` manage tabs (one tab per agent;
+  closing a tab never removes the agent); `openPanel/closePanel/togglePanel/isPanelOpen` manage the
+  per-tab panels (`PanelKind = 'diff' | 'conflicts' | 'todo'`). Never reintroduce ad-hoc `useState`
+  booleans or prop-drilled callbacks for panel visibility. New panels: extend `PanelKind`, render from
+  `isPanelOpen`. The reducer (`workbenchReducer`) is pure and covered by `scripts/smoke-test.ts`.
+- **Terminal tabs remount on switch** (`key={activeTabId}`): main forwards PTY output for a *single*
+  attached agent, and the ring replay restores the screen on attach. Don't add keep-alive hidden
+  terminals without changing that model.
 
 ## Build, test, verify
 
