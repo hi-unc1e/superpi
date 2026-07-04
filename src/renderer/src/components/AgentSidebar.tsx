@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import type { AgentDescriptor, AgentStatusInfo, GitLogEntry, WorktreeGitState, WorkspaceInfo } from '@shared/types'
+import type { AgentConfig, AgentDescriptor, AgentStatusInfo, GitLogEntry, WorktreeGitState, WorkspaceInfo } from '@shared/types'
 import { CONFIGS_TAB_ID, GITLOG_TAB_ID, useWorkbench } from '../lib/workbench'
 
 interface Props {
@@ -33,12 +33,25 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
   const [gitLog, setGitLog] = useState<GitLogEntry[]>([])
   const [gitLogLoading, setGitLogLoading] = useState(false)
   const [gitStates, setGitStates] = useState<Record<string, WorktreeGitState>>({})
+  const [configMenuOpen, setConfigMenuOpen] = useState(false)
+  const [configs, setConfigs] = useState<AgentConfig[]>([])
+  const configMenuRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const { openTab, openPanel } = useWorkbench()
 
   useEffect(() => {
     if (editingId) inputRef.current?.select()
   }, [editingId])
+
+  // Close the config picker on any click outside of it.
+  useEffect(() => {
+    if (!configMenuOpen) return
+    const onDown = (e: MouseEvent): void => {
+      if (!configMenuRef.current?.contains(e.target as Node)) setConfigMenuOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [configMenuOpen])
 
   // Poll the unstaged diff (LoC) for every agent so the sidebar stays current.
   useEffect(() => {
@@ -59,15 +72,25 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
     return () => { cancelled = true; clearInterval(t) }
   }, [agents])
 
-  async function newAgent(): Promise<void> {
+  async function newAgent(configId?: string): Promise<void> {
+    setConfigMenuOpen(false)
     setCreating(true)
     try {
-      await window.superpi.createAgent({})
+      await window.superpi.createAgent(configId ? { configId } : {})
     } catch (err) {
       console.error('[superpi] createAgent failed:', err)
     } finally {
       setCreating(false)
     }
+  }
+
+  async function toggleConfigMenu(): Promise<void> {
+    if (configMenuOpen) {
+      setConfigMenuOpen(false)
+      return
+    }
+    setConfigs(await window.superpi.listConfigs())
+    setConfigMenuOpen(true)
   }
 
   async function newTerminal(): Promise<void> {
@@ -142,27 +165,68 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
       </div>
 
       <div className="border-b border-zinc-800">
-        <button
-          onClick={newAgent}
-          disabled={creating}
-          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="h-4 w-4 shrink-0"
+        <div ref={configMenuRef} className="group relative">
+          <button
+            onClick={() => newAgent()}
+            disabled={creating}
+            className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 disabled:opacity-50"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
-            />
-          </svg>
-          New agent
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="h-4 w-4 shrink-0"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"
+              />
+            </svg>
+            New agent
+          </button>
+          <button
+            onClick={toggleConfigMenu}
+            disabled={creating}
+            title="New agent from config…"
+            className={`absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200 disabled:opacity-50 ${
+              configMenuOpen ? '' : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+            }`}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="h-3 w-3"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
+          {configMenuOpen && (
+            <div className="absolute left-2 right-2 top-full z-20 mt-0.5 overflow-hidden rounded border border-zinc-700 bg-zinc-800 shadow-lg">
+              {configs.length === 0 && (
+                <div className="px-3 py-2 text-xs text-zinc-500">No saved configs</div>
+              )}
+              {configs.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => newAgent(c.id)}
+                  className="flex w-full flex-col px-3 py-1.5 text-left hover:bg-zinc-700"
+                >
+                  <span className="truncate text-sm text-zinc-200">
+                    {c.name}
+                    {c.isDefault && <span className="ml-1 text-xs text-emerald-400">default</span>}
+                  </span>
+                  {c.model && <span className="truncate text-xs text-zinc-500">{c.model}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           disabled
           className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-500 cursor-default disabled:opacity-100"
