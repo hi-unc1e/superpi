@@ -1,22 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AgentDescriptor, AgentStatusInfo, WorkspaceInfo } from '@shared/types'
 import { Welcome } from './components/Welcome'
 import { GitInitBanner } from './components/GitInitBanner'
 import { AgentSidebar } from './components/AgentSidebar'
+import { TabStrip } from './components/TabStrip'
 import { TerminalPane } from './components/TerminalPane'
 import { TodoPanel } from './components/TodoPanel'
 import { StatusBar } from './components/StatusBar'
-import { DiffPane } from './components/DiffPane'
 import { emitTermData } from './lib/terminalBus'
+import { useWorkbench } from './lib/workbench'
 
 
 export function App() {
   const [workspace, setWorkspace] = useState<WorkspaceInfo | null | undefined>(undefined)
   const [agents, setAgents] = useState<AgentDescriptor[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [diffOpen, setDiffOpen] = useState(false)
-  const [todoAgentId, setTodoAgentId] = useState<string | null>(null)
   const [statuses, setStatuses] = useState<Record<string, AgentStatusInfo>>({})
+  const { activeTabId, openTab, togglePanel, closePanel, isPanelOpen, pruneTabs, resetWorkbench } =
+    useWorkbench()
+  /** Agent ids seen in the previous list. Null before the first load of a
+   * workspace, so the first agent gets a tab on startup; afterwards only
+   * newly created agents auto-open (closing the last tab stays closed). */
+  const seenAgentsRef = useRef<Set<string> | null>(null)
 
   useEffect(() => {
     window.superpi.getWorkspace().then(setWorkspace)
@@ -34,11 +38,11 @@ export function App() {
     }
   }, [])
 
-  // Refetch agents + reset selection whenever the open folder changes.
+  // Refetch agents + reset the workbench whenever the open folder changes.
   useEffect(() => {
     window.superpi.listAgents().then(setAgents)
-    setActiveId(null)
-    setTodoAgentId(null)
+    seenAgentsRef.current = null
+    resetWorkbench()
   }, [workspace?.path])
 
   // Pull status snapshots for agents we have no push for yet: `status:changed`
@@ -52,10 +56,16 @@ export function App() {
     }
   }, [agents])
 
+  // Close tabs of removed agents; auto-open a tab for the first agent after a
+  // workspace load and for each newly created agent.
   useEffect(() => {
-    if (activeId && !agents.some((a) => a.id === activeId)) setActiveId(agents[0]?.id ?? null)
-    else if (!activeId && agents.length > 0) setActiveId(agents[0].id)
-  }, [agents, activeId])
+    pruneTabs(agents.map((a) => a.id))
+    const seen = seenAgentsRef.current
+    seenAgentsRef.current = new Set(agents.map((a) => a.id))
+    if (agents.length === 0) return
+    if (seen === null) openTab(agents[0].id)
+    else for (const a of agents) if (!seen.has(a.id)) openTab(a.id)
+  }, [agents])
 
   let body: JSX.Element
   if (workspace === undefined) {
@@ -73,46 +83,42 @@ export function App() {
       </div>
     )
   } else {
-    const active = agents.find((a) => a.id === activeId) ?? null
-    const todoAgent = todoAgentId ? agents.find((a) => a.id === todoAgentId) ?? null : null
+    const active = agents.find((a) => a.id === activeTabId) ?? null
+    const todoOpen = active !== null && isPanelOpen(active.id, 'todo')
     body = (
       <div className="flex flex-1 overflow-hidden">
         <AgentSidebar
           workspace={workspace}
           agents={agents}
           statuses={statuses}
-          activeId={activeId}
-          todoAgentId={todoAgentId}
-          onToggleTodos={(id) => setTodoAgentId((prev) => (prev === id ? null : id))}
-          onSelect={setActiveId}
+          activeId={activeTabId}
+          todoAgentId={active && todoOpen ? active.id : null}
+          onToggleTodos={(id) => {
+            openTab(id)
+            togglePanel(id, 'todo')
+          }}
+          onSelect={openTab}
         />
         <main className="flex flex-1 flex-col overflow-hidden">
+          <TabStrip agents={agents} statuses={statuses} />
           <div className="flex flex-1 overflow-hidden">
-            <div className="flex-1 overflow-hidden">
-              {active ? (
-                <TerminalPane
-                  key={active.id}
-                  id={active.id}
-                  diffOpen={diffOpen}
-                  onToggleDiff={() => setDiffOpen((o) => !o)}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-zinc-500">
-                  No agent — click +New to launch one in this worktree.
-                </div>
-              )}
-            </div>
-            {diffOpen && active && (
-              <DiffPane id={active.id} onClose={() => setDiffOpen(false)} />
+            {active ? (
+              <TerminalPane key={active.id} id={active.id} />
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-zinc-500">
+                {agents.length > 0
+                  ? 'No tab open — select an agent in the sidebar.'
+                  : 'No agent — click +New to launch one in this worktree.'}
+              </div>
             )}
           </div>
           <StatusBar agent={active} info={active ? statuses[active.id] : undefined} />
         </main>
-        {todoAgent && (
+        {active && todoOpen && (
           <TodoPanel
-            agent={todoAgent}
-            phases={statuses[todoAgent.id]?.todoPhases}
-            onClose={() => setTodoAgentId(null)}
+            agent={active}
+            phases={statuses[active.id]?.todoPhases}
+            onClose={() => closePanel(active.id, 'todo')}
           />
         )}
       </div>

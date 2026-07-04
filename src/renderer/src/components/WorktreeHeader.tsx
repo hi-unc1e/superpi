@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { WorktreeActionResult, WorktreeGitState } from '@shared/types'
 import { WorktreeGraph } from './WorktreeGraph'
+import { useWorkbench } from '../lib/workbench'
 
 const POLL_MS = 2000
 
@@ -11,18 +12,10 @@ function errMsg(e: unknown): string {
 
 /** Header above a worktree terminal: branch graph, merge/commit/rebase controls,
  * and the unstaged +/- LoC. Polls git state and refreshes after each action.
- * Calls onOpenConflicts when the worktree newly enters a conflicted state. */
-export function WorktreeHeader({
-  id,
-  diffOpen,
-  onToggleDiff,
-  onOpenConflicts
-}: {
-  id: string
-  diffOpen: boolean
-  onToggleDiff: () => void
-  onOpenConflicts: () => void
-}) {
+ * Opens the conflicts panel when the worktree newly enters a conflicted state. */
+export function WorktreeHeader({ id }: { id: string }) {
+  const { isPanelOpen, togglePanel, openPanel } = useWorkbench()
+  const diffOpen = isPanelOpen(id, 'diff')
   const [state, setState] = useState<WorktreeGitState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -75,9 +68,9 @@ export function WorktreeHeader({
   // Auto-open the panel when conflicts first appear (rebase click or terminal action).
   const prevConflicts = useRef(0)
   useEffect(() => {
-    if (conflictCount > 0 && prevConflicts.current === 0) onOpenConflicts()
+    if (conflictCount > 0 && prevConflicts.current === 0) openPanel(id, 'conflicts')
     prevConflicts.current = conflictCount
-  }, [conflictCount, onOpenConflicts])
+  }, [conflictCount, openPanel, id])
 
   const btn =
     'rounded border border-zinc-700 px-2 py-1 text-zinc-200 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40'
@@ -107,7 +100,7 @@ export function WorktreeHeader({
           type="button"
           className={`${btn} ${conflictCount > 0 ? 'border-amber-600 text-amber-400' : ''}`}
           disabled={conflictCount === 0 && !rebasing}
-          onClick={onOpenConflicts}
+          onClick={() => openPanel(id, 'conflicts')}
         >
           Conflicts{conflictCount > 0 ? ` (${conflictCount})` : ''}
         </button>
@@ -131,7 +124,7 @@ export function WorktreeHeader({
       {diff && (
         <button
           type="button"
-          onClick={onToggleDiff}
+          onClick={() => togglePanel(id, 'diff')}
           disabled={!diff.hasChanges}
           title={diffOpen ? 'Hide changes' : 'Show changes'}
           className="ml-auto flex items-center gap-2 rounded px-1.5 py-0.5 font-mono hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"

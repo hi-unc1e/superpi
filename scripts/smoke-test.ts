@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { WorktreeManager, linkNodeModules } from '../src/main/worktree'
 import { StatusWatcher } from '../src/main/status'
 import { getWorktreeDiff, getWorktreeUnifiedDiff } from '../src/main/git'
+import { workbenchReducer, EMPTY_WORKBENCH, type WorkbenchState } from '../src/renderer/src/lib/workbench'
 
 let failures = 0
 function check(name: string, cond: boolean, detail = ''): void {
@@ -195,11 +196,68 @@ async function testStatusTodos(): Promise<void> {
   rmSync(dir, { recursive: true, force: true })
 }
 
+function testWorkbench(): void {
+  console.log('Workbench reducer')
+
+  let s: WorkbenchState = workbenchReducer(EMPTY_WORKBENCH, { type: 'open-tab', id: 'a' })
+  s = workbenchReducer(s, { type: 'open-tab', id: 'b' })
+  s = workbenchReducer(s, { type: 'open-tab', id: 'c' })
+  check('open-tab appends in open order', s.tabs.join(',') === 'a,b,c', s.tabs.join(','))
+  check('open-tab activates the new tab', s.activeTabId === 'c', String(s.activeTabId))
+  const reopened = workbenchReducer(s, { type: 'open-tab', id: 'a' })
+  check('re-open does not duplicate the tab', reopened.tabs.join(',') === 'a,b,c', reopened.tabs.join(','))
+  check('re-open activates the existing tab', reopened.activeTabId === 'a')
+
+  const active = workbenchReducer(s, { type: 'activate-tab', id: 'b' })
+  check('activate-tab switches the active tab', active.activeTabId === 'b')
+  check('activate-tab of unknown id is a no-op', workbenchReducer(s, { type: 'activate-tab', id: 'zz' }) === s)
+
+  // Successor choice: closing the active middle tab activates the next by
+  // index; closing the active last tab falls back to the previous one.
+  const closedMid = workbenchReducer(active, { type: 'close-tab', id: 'b' })
+  check('close active middle tab activates next by index', closedMid.activeTabId === 'c' && closedMid.tabs.join(',') === 'a,c', JSON.stringify(closedMid))
+  const closedLast = workbenchReducer(closedMid, { type: 'close-tab', id: 'c' })
+  check('close active last tab activates previous', closedLast.activeTabId === 'a' && closedLast.tabs.join(',') === 'a', JSON.stringify(closedLast))
+  const closedInactive = workbenchReducer(active, { type: 'close-tab', id: 'c' })
+  check('close inactive tab preserves active', closedInactive.activeTabId === 'b' && closedInactive.tabs.join(',') === 'a,b', JSON.stringify(closedInactive))
+  check('close unknown tab returns same state', workbenchReducer(s, { type: 'close-tab', id: 'zz' }) === s)
+
+  let p = workbenchReducer(s, { type: 'set-panel', id: 'a', panel: 'diff', open: true })
+  p = workbenchReducer(p, { type: 'set-panel', id: 'b', panel: 'todo', open: true })
+  check('set-panel opens for the right tab', p.panels['a']?.diff === true && p.panels['b']?.todo === true, JSON.stringify(p.panels))
+  check('panel state is isolated per tab', p.panels['b']?.diff === undefined && p.panels['a']?.todo === undefined, JSON.stringify(p.panels))
+  check('set-panel to current value returns same state', workbenchReducer(p, { type: 'set-panel', id: 'a', panel: 'diff', open: true }) === p)
+  check('set-panel closed->false is also a no-op', workbenchReducer(p, { type: 'set-panel', id: 'c', panel: 'conflicts', open: false }) === p)
+  const toggledOn = workbenchReducer(p, { type: 'toggle-panel', id: 'a', panel: 'conflicts' })
+  check('toggle-panel opens a closed panel', toggledOn.panels['a']?.conflicts === true)
+  const toggledOff = workbenchReducer(toggledOn, { type: 'toggle-panel', id: 'a', panel: 'conflicts' })
+  check('toggle-panel closes an open panel', toggledOff.panels['a']?.conflicts === false)
+  check('toggle-panel preserves sibling panels of the tab', toggledOff.panels['a']?.diff === true, JSON.stringify(toggledOff.panels))
+
+  const closedA = workbenchReducer(p, { type: 'close-tab', id: 'a' })
+  check('close-tab drops the closed tab panel entry', !('a' in closedA.panels), JSON.stringify(closedA.panels))
+  check('close-tab keeps other tabs panel state', closedA.panels['b']?.todo === true, JSON.stringify(closedA.panels))
+
+  // p: tabs a,b,c (active c), panels a.diff and b.todo open.
+  const pruned = workbenchReducer(p, { type: 'prune', alive: ['b'] })
+  check('prune removes dead tabs', pruned.tabs.join(',') === 'b', pruned.tabs.join(','))
+  check('prune drops dead panels, keeps alive ones', !('a' in pruned.panels) && pruned.panels['b']?.todo === true, JSON.stringify(pruned.panels))
+  check('prune falls back active to last remaining tab', pruned.activeTabId === 'b', String(pruned.activeTabId))
+  const prunedKeep = workbenchReducer(active, { type: 'prune', alive: ['b', 'c'] })
+  check('prune keeps active tab when alive', prunedKeep.activeTabId === 'b' && prunedKeep.tabs.join(',') === 'b,c', JSON.stringify(prunedKeep))
+  const prunedAll = workbenchReducer(s, { type: 'prune', alive: [] })
+  check('prune of every tab empties active to null', prunedAll.tabs.length === 0 && prunedAll.activeTabId === null, JSON.stringify(prunedAll))
+  check('prune with all alive returns same state', workbenchReducer(s, { type: 'prune', alive: ['a', 'b', 'c'] }) === s)
+
+  check('reset returns the empty workbench', workbenchReducer(p, { type: 'reset' }) === EMPTY_WORKBENCH)
+}
+
 async function main(): Promise<void> {
   await testWorktree()
   await testStatus()
   await testDiff()
   await testStatusTodos()
+  testWorkbench()
   if (failures > 0) {
     console.error(`\n${failures} check(s) FAILED`)
     process.exit(1)

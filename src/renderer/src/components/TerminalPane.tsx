@@ -1,33 +1,27 @@
 import '@xterm/xterm/css/xterm.css'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { onTermData } from '../lib/terminalBus'
 import { ConflictsPanel } from './ConflictsPanel'
+import { DiffPane } from './DiffPane'
 import { WorktreeHeader } from './WorktreeHeader'
+import { useWorkbench } from '../lib/workbench'
 
 type AttachState = 'loading' | 'self' | 'remote' | 'error'
 
-export function TerminalPane({
-  id,
-  diffOpen,
-  onToggleDiff
-}: {
-  id: string
-  diffOpen: boolean
-  onToggleDiff: () => void
-}) {
+export function TerminalPane({ id }: { id: string }) {
   const elRef = useRef<HTMLDivElement>(null)
   const [state, setState] = useState<AttachState>('loading')
-  const [conflictsOpen, setConflictsOpen] = useState(false)
-  const openConflicts = useCallback(() => setConflictsOpen(true), [])
+  const { isPanelOpen, closePanel } = useWorkbench()
+  const diffOpen = isPanelOpen(id, 'diff')
+  const conflictsOpen = isPanelOpen(id, 'conflicts')
 
   // Resolve attach state on mount / id change.
   useEffect(() => {
     setState('loading')
-    setConflictsOpen(false)
     let cancelled = false
     window.superpi.terminalAttach(id).then((res) => {
       if (cancelled) return
@@ -115,10 +109,11 @@ export function TerminalPane({
 
   return (
     <div className="flex h-full w-full flex-col">
-      <WorktreeHeader id={id} diffOpen={diffOpen} onToggleDiff={onToggleDiff} onOpenConflicts={openConflicts} />
+      <WorktreeHeader id={id} />
       <div className="flex min-h-0 flex-1">
         <div className="flex-1 overflow-hidden">{body}</div>
-        {conflictsOpen && <ConflictsPanel id={id} onClose={() => setConflictsOpen(false)} />}
+        {diffOpen && <DiffPane id={id} onClose={() => closePanel(id, 'diff')} />}
+        {conflictsOpen && <ConflictsPanel id={id} onClose={() => closePanel(id, 'conflicts')} />}
       </div>
     </div>
   )

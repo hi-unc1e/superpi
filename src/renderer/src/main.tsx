@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { WorkbenchProvider } from './lib/workbench'
 import './index.css'
 
 // No StrictMode: it double-invokes effects in dev, which would double-attach
@@ -7,4 +8,8 @@ import './index.css'
 const root = document.getElementById('root')
 if (!root) throw new Error('#root not found')
 
-createRoot(root).render(<App />)
+createRoot(root).render(
+  <WorkbenchProvider>
+    <App />
+  </WorkbenchProvider>
+)
