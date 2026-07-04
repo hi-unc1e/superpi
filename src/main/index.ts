@@ -84,7 +84,10 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(async () => {
-  workspace.on('changed', (ws) => mainWindow?.webContents.send('workspace:changed', ws))
+  workspace.on('changed', (ws) => {
+    if (mainWindow) mainWindow.setTitle(ws ? ws.path : 'superpi')
+    mainWindow?.webContents.send('workspace:changed', ws)
+  })
   agents.on('changed', (list) => mainWindow?.webContents.send('agent:list:changed', list))
   terminals.on('data', (id: string, data: string) =>
     mainWindow?.webContents.send('terminal:data', id, data)
