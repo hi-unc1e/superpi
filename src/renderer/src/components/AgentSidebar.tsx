@@ -113,6 +113,11 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
       return
     }
     setShowGitLog(true)
+    await fetchGitLog()
+  }
+
+  /** Shared worker that fetches git log entries — reused by all three targets. */
+  async function fetchGitLog(): Promise<void> {
     setGitLogLoading(true)
     try {
       const entries = await window.superpi.gitLog()
@@ -120,6 +125,16 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
     } finally {
       setGitLogLoading(false)
     }
+  }
+
+  async function openGitLogInTab(): Promise<void> {
+    await fetchGitLog()
+    // TODO: wire to tab API once available
+  }
+
+  async function openGitLogInPanel(): Promise<void> {
+    await fetchGitLog()
+    // TODO: wire to panel API once available
   }
 
   return (
@@ -232,26 +247,57 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
           </svg>
           Issues
         </button>
-        <button
-          onClick={toggleGitLog}
-          className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
-            className="h-4 w-4 shrink-0"
+        <div className="group/gitlog flex w-full items-center hover:bg-zinc-800">
+          <button
+            onClick={toggleGitLog}
+            className="flex flex-1 items-center gap-2 px-4 py-2 text-left text-sm text-zinc-200"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          Git log
-        </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="h-4 w-4 shrink-0"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            Git log
+          </button>
+          <div className="hidden group-hover/gitlog:flex items-center gap-1 pr-2">
+            <button
+              onClick={toggleGitLog}
+              title="Open in sidebar"
+              className="rounded p-0.5 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+            <button
+              onClick={openGitLogInTab}
+              title="Open in new tab"
+              className="rounded p-0.5 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+              </svg>
+            </button>
+            <button
+              onClick={openGitLogInPanel}
+              title="Open in side panel"
+              className="rounded p-0.5 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-200"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5m7.5-7.5H3" />
+              </svg>
+            </button>
+          </div>
+        </div>
         <button
           onClick={() => setConfigsOpen(true)}
           className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800"
