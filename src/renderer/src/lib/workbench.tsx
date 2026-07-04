@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from 'react'
 
 /** Auxiliary panels that can be opened per tab. */
-export type PanelKind = 'diff' | 'conflicts' | 'todo'
+export type PanelKind = 'diff' | 'conflicts' | 'todo' | 'gitlog'
 
 /** Tabs (open agent terminals) + per-tab panel visibility. The single owner of
  * "what is open" in the main pane: components open/close tabs and panels only

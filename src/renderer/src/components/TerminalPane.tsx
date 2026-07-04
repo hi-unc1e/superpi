@@ -8,6 +8,7 @@ import { onTermData } from '../lib/terminalBus'
 import { ConflictsPanel } from './ConflictsPanel'
 import { DiffPane } from './DiffPane'
 import { WorktreeHeader } from './WorktreeHeader'
+import { GitLogPanel } from './GitLogPanel'
 import { useWorkbench } from '../lib/workbench'
 
 type AttachState = 'loading' | 'self' | 'remote' | 'error'
@@ -18,6 +19,7 @@ export function TerminalPane({ id }: { id: string }) {
   const { isPanelOpen, closePanel } = useWorkbench()
   const diffOpen = isPanelOpen(id, 'diff')
   const conflictsOpen = isPanelOpen(id, 'conflicts')
+  const gitlogOpen = isPanelOpen(id, 'gitlog')
 
   // Resolve attach state on mount / id change.
   useEffect(() => {
@@ -114,6 +116,7 @@ export function TerminalPane({ id }: { id: string }) {
         <div className="flex-1 overflow-hidden">{body}</div>
         {diffOpen && <DiffPane id={id} onClose={() => closePanel(id, 'diff')} />}
         {conflictsOpen && <ConflictsPanel id={id} onClose={() => closePanel(id, 'conflicts')} />}
+        {gitlogOpen && <GitLogPanel onClose={() => closePanel(id, 'gitlog')} />}
       </div>
     </div>
   )
