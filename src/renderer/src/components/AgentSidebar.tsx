@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { AgentDescriptor, AgentStatusInfo, GitLogEntry, WorktreeGitState, WorkspaceInfo } from '@shared/types'
 import { ConfigsDialog } from './ConfigsDialog'
-import { useWorkbench } from '../lib/workbench'
 
 interface Props {
   workspace: WorkspaceInfo
@@ -36,7 +35,6 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
   const [gitLogLoading, setGitLogLoading] = useState(false)
   const [gitStates, setGitStates] = useState<Record<string, WorktreeGitState>>({})
   const inputRef = useRef<HTMLInputElement>(null)
-  const { openTab } = useWorkbench()
 
   useEffect(() => {
     if (editingId) inputRef.current?.select()
@@ -300,22 +298,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                     terminal
                   </button>
                 </div>
-                {/* Row 3 — col 1: empty */}
-                <div />
-                {/* Row 3 — col 2: to tab (hover) — opens the agent's terminal as a tab and activates it */}
-                <div className="flex items-center justify-end">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      openTab(a.id)
-                    }}
-                    className={`invisible text-[11px] text-zinc-500 hover:text-zinc-300 ${editing || confirming ? '' : 'group-hover:visible'}`}
-                  >
-                    to tab
-                  </button>
-                </div>
-
-                {/* Row 4 — col 1: LoC count (only when there are changes) */}
+                {/* Row 3 — col 1: LoC count (only when there are changes) */}
                 <div className="flex items-center">
                   {diff?.hasChanges && (
                     <span className="flex items-center gap-1 font-mono text-[11px]">
@@ -324,7 +307,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                     </span>
                   )}
                 </div>
-                {/* Row 4 — col 2: rename (hover) */}
+                {/* Row 3 — col 2: rename (hover) */}
                 <div className="flex items-center justify-end">
                   <button
                     onClick={(e) => {
@@ -337,7 +320,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                   </button>
                 </div>
 
-                {/* Row 5 — col 1: worktree branch path (+ inline edit/confirm affordances) */}
+                {/* Row 4 — col 1: worktree branch path (+ inline edit/confirm affordances) */}
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-[11px] text-zinc-500" title={a.branch}>{a.branch}</span>
                   {editing && <span className="shrink-0 text-[11px] text-zinc-500">enter to save</span>}
@@ -365,7 +348,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
                     </span>
                   )}
                 </div>
-                {/* Row 5 — col 2: remove (hover) */}
+                {/* Row 4 — col 2: remove (hover) */}
                 <div className="flex items-center justify-end">
                   <button
                     onClick={(e) => {
