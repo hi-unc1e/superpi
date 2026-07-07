@@ -14,10 +14,34 @@ export interface PiLaunchConfig {
 
 /**
  * Builds the `omp` invocation for an agent:
- *   omp --session-dir <dir> -e <monitor-hook.ts> [--model ..] [--thinking ..] [extraArgs]
+ *   omp --session-dir <dir> -e <monitor-hook.ts> --append-system-prompt <worktree-isolation>
+ *        [--model ..] [--thinking ..] [extraArgs]
  * with SUPERPI_* env so the hook can locate its per-agent events file and the
  * agent environment carries the worktree root for path isolation.
+ * The --append-system-prompt injects a worktree isolation directive that
+ * constrains the agent to relative paths and forbids touching main.
  */
+
+/** Injected into every omp agent's system prompt so agents never touch the
+ * main working tree — they work exclusively inside their sandboxed worktree.
+ * The one escape hatch: explicit user permission to operate on main. */
+const WORKTREE_ISOLATION_PROMPT =
+`<worktree-isolation>
+You are running inside a git worktree managed by superpi. The worktree root is at
+$SUPERPI_WORKTREE.
+- You MUST use only relative paths with every tool (read, edit, write, bash,
+  grep, glob, ast_grep). Absolute paths bypass the worktree and hit the main
+  working tree.
+- You MUST NOT modify, read, or access files outside this worktree. The main
+  branch is off-limits.
+- The env var SUPERPI_WORKTREE carries the absolute worktree path. Harness
+  tooling SHOULD reject any path that resolves outside this directory.
+- Changes are committed to the worktree's branch, never to main. Merging
+  happens separately — outside your scope.
+- To work on the main branch (outside the worktree), you MUST ask the user
+  for explicit permission first. Without such permission, operating outside
+  the worktree is a violation of your constraints.
+</worktree-isolation>`
 export function buildPiLaunchConfig(
   agentId: string,
   sessionDir: string,
@@ -25,7 +49,7 @@ export function buildPiLaunchConfig(
   config?: AgentConfig,
   resume?: boolean
 ): PiLaunchConfig {
-  const args = ['--session-dir', sessionDir, '-e', monitorHookPath()]
+  const args = ['--session-dir', sessionDir, '-e', monitorHookPath(), '--append-system-prompt', WORKTREE_ISOLATION_PROMPT]
   if (resume) args.push('--continue')
   if (config?.model) args.push('--model', config.model)
   if (config?.thinking) args.push('--thinking', config.thinking)

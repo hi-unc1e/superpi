@@ -48,6 +48,12 @@ is a *different* checkout and **MUST NOT be modified directly**.
 - Changes are committed to the agent's branch (`superpi/<shortid>`), never to
   `main`. Merging happens separately — outside the agent's scope.
 
+**Enforcement:** this constraint is now injected into every `omp` agent's system
+prompt at launch time via `--append-system-prompt` (see `src/main/pi.ts`). The
+agent receives the `<worktree-isolation>` directive before any user input, so
+relative-path-only behavior is mandatory regardless of the workspace's own
+`AGENTS.md`.
+
 ## File responsibilities
 
 |Area|Files|Owns|
