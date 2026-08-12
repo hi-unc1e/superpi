@@ -96,7 +96,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
   async function newTerminal(): Promise<void> {
     setCreating(true)
     try {
-      await window.superpi.createAgent({ kind: 'terminal', cwdPath: workspace.path, name: 'main' })
+      await window.superpi.createAgent({ kind: 'terminal', terminalTarget: 'workspace', name: 'main' })
     } catch (err) {
       console.error('[superpi] createAgent (terminal) failed:', err)
     } finally {
@@ -106,7 +106,7 @@ export function AgentSidebar({ workspace, agents, statuses, activeId, todoAgentI
 
   async function spawnTerminalOnAgent(a: AgentDescriptor): Promise<void> {
     try {
-      await window.superpi.createAgent({ kind: 'terminal', cwdPath: a.worktreePath, name: `sh-${a.name}` })
+      await window.superpi.createAgent({ kind: 'terminal', terminalTarget: { agentId: a.id }, name: `sh-${a.name}` })
     } catch (err) {
       console.error('[superpi] spawnTerminalOnAgent failed:', err)
     }

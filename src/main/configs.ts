@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import type { AgentConfig } from '@shared/types'
+import { normalizeAgentConfig } from './security'
 import { APP_DIR, CONFIGS_FILE } from './paths'
 
 const SEED: AgentConfig = { id: 'default', name: 'Default', isDefault: true }
@@ -20,7 +21,13 @@ export class ConfigStore extends EventEmitter {
     if (existsSync(CONFIGS_FILE)) {
       try {
         const raw = JSON.parse(readFileSync(CONFIGS_FILE, 'utf8'))
-        if (Array.isArray(raw)) this.configs = raw
+        if (Array.isArray(raw)) {
+          // Validate + quarantine every persisted entry at the JSON boundary;
+          // drop legacy extraArgs and any unknown field silently.
+          this.configs = raw
+            .map((entry) => normalizeAgentConfig(entry))
+            .filter((c): c is AgentConfig => c !== null)
+        }
       } catch {
         this.configs = []
       }
@@ -55,7 +62,9 @@ export class ConfigStore extends EventEmitter {
   }
 
   save(cfg: AgentConfig): AgentConfig {
-    const next = { ...cfg }
+    const normalized = normalizeAgentConfig(cfg)
+    if (!normalized) throw new Error('Invalid agent config.')
+    const next = { ...normalized }
     if (!next.id || next.id === 'new') next.id = randomUUID()
     const idx = this.configs.findIndex((c) => c.id === next.id)
     if (idx >= 0) this.configs[idx] = next

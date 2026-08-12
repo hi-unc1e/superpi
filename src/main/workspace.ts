@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { WorkspaceInfo } from '@shared/types'
 import { APP_DIR, WORKSPACE_FILE } from './paths'
@@ -30,6 +30,9 @@ export class WorkspaceController extends EventEmitter {
 
   async set(path: string): Promise<WorkspaceInfo> {
     const absPath = resolve(path)
+    if (!existsSync(absPath) || !statSync(absPath).isDirectory()) {
+      throw new Error(`Workspace path does not exist or is not a directory: ${path}`)
+    }
     const isGit = await checkIsRepo(absPath)
     this.current = { path: absPath, isGit }
     writeFileSync(WORKSPACE_FILE, JSON.stringify({ path: absPath }))

@@ -2,6 +2,7 @@ import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, wr
 import { join, resolve } from 'node:path'
 import simpleGit from 'simple-git'
 import { WORKTREE_SUBDIR } from './paths'
+import { expectedWorktreePath } from './security'
 
 export interface WorktreeInfo {
   worktreePath: string
@@ -39,16 +40,20 @@ export class WorktreeManager {
     return { worktreePath, branch }
   }
 
-  async remove(repoPath: string, worktreePath: string, branch?: string): Promise<void> {
+  /** Remove a worktree by id. The path is DERIVED as `<repoPath>/.superpi/<id>`
+   * and refused if the resolved target is not exactly that — a poisoned caller
+   * can never point removal at an arbitrary directory. */
+  async remove(repoPath: string, id: string, branch?: string): Promise<void> {
+    const expected = expectedWorktreePath(repoPath, id)
     const git = simpleGit(repoPath)
     try {
-      await git.raw(['worktree', 'remove', '--force', worktreePath])
+      await git.raw(['worktree', 'remove', '--force', expected])
     } catch {
       /* worktree already gone */
     }
     // Clean up the worktree directory. Never delete the repo itself.
-    if (resolve(worktreePath) !== resolve(repoPath)) {
-      try { rmSync(worktreePath, { recursive: true, force: true }) } catch { /* ignore */ }
+    if (resolve(expected) !== resolve(repoPath)) {
+      try { rmSync(expected, { recursive: true, force: true }) } catch { /* ignore */ }
     }
     if (branch) {
       try {

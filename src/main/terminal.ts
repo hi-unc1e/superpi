@@ -2,7 +2,8 @@ import * as pty from 'node-pty'
 import { EventEmitter } from 'node:events'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import type { AgentConfig, AgentKind } from '@shared/types'
-import { buildPiLaunchConfig, buildPiShellCommand, buildPlainShellCommand, sanitizeEnv } from './pi'
+import { buildPiLaunchConfig, buildPiShellCommand, buildPlainShellCommand } from './pi'
+import { safeLaunchEnv } from './security'
 import { lockFileFor } from './paths'
 
 /** Max bytes of scrollback retained per agent for replay on (re)attach. */
@@ -50,8 +51,8 @@ export class TerminalManager extends EventEmitter {
       : buildPiShellCommand(piCfg!.args)
 
     const env = isTerminal
-      ? sanitizeEnv({ ...process.env, SUPERPI: '1' })
-      : sanitizeEnv(piCfg!.env)
+      ? safeLaunchEnv(process.env, { SUPERPI: '1' })
+      : piCfg!.env
 
     const p = pty.spawn(shell, ['-lc', command], {
       cwd,

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import simpleGit from 'simple-git'
 import type { ConflictInfo, ConflictResolution, GitLogEntry, WorktreeCommit, WorktreeDiff, WorktreeDiffFile, WorktreeDiffHunk, WorktreeDiffStat, WorktreeGraph } from '@shared/types'
@@ -112,8 +112,16 @@ export async function getWorktreeDiff(worktreePath: string): Promise<WorktreeDif
   // separately so new files contribute to the diff stat shown in the UI.
   const untracked = await git.raw(['ls-files', '--others', '--exclude-standard'])
   for (const name of untracked.split('\n').filter(Boolean)) {
+    const p = join(worktreePath, name)
     try {
-      const content = readFileSync(join(worktreePath, name), 'utf8')
+      const st = lstatSync(p)
+      // Symlinks and non-regular files count as changed but are never
+      // followed/read — prevents a poisoned worktree from exfiltrating data.
+      if (!st.isFile()) {
+        files++
+        continue
+      }
+      const content = readFileSync(p, 'utf8')
       // Count lines: split on \n; a trailing empty string after the
       // final newline does not represent a line. Match wc -l semantics.
       const lines = content.split('\n')
@@ -261,7 +269,7 @@ export async function mergeWorktreeToMain(
         )
       }
     }
-    for (const f of blockers) unlinkSync(worktreeFilePath(workspacePath, f))
+    for (const f of blockers) unlinkSync(safeWorktreeFilePath(workspacePath, f))
   }
   const conflict = (await git.raw(['diff', '--name-only', '--diff-filter=U'])).trim().length > 0
   if (conflict || hardErr) {
@@ -298,17 +306,27 @@ export async function getConflictInfo(worktreePath: string): Promise<ConflictInf
   return { rebasing: await isRebasing(worktreePath), files }
 }
 
-/** Resolve <file> relative to the worktree, rejecting escapes ('..', absolute). */
-function worktreeFilePath(worktreePath: string, file: string): string {
+/** Resolve <file> relative to the worktree, rejecting escapes ('..', absolute),
+ * symlinks, non-regular files, and parent-dir realpath escapes. The realpath
+ * check defeats a symlink placed inside the worktree that points outside. */
+function safeWorktreeFilePath(worktreePath: string, file: string): string {
+  if (file === '') throw new Error('Empty file path.')
   const abs = resolve(worktreePath, file)
   const root = resolve(worktreePath)
   if (abs !== root && !abs.startsWith(root + sep)) throw new Error(`Path escapes worktree: ${file}`)
+  const st = lstatSync(abs)
+  if (!st.isFile()) throw new Error(`Not a regular file: ${file}`)
+  const parentReal = realpathSync(resolve(abs, '..'))
+  const rootReal = realpathSync(root)
+  if (parentReal !== rootReal && !parentReal.startsWith(rootReal + sep)) {
+    throw new Error(`Path escapes worktree via realpath: ${file}`)
+  }
   return abs
 }
 
 /** Read a worktree file (conflict markers included) for the Conflicts panel. */
 export function readWorktreeFile(worktreePath: string, file: string): string {
-  return readFileSync(worktreeFilePath(worktreePath, file), 'utf8')
+  return readFileSync(safeWorktreeFilePath(worktreePath, file), 'utf8')
 }
 
 /** Resolve one conflicted file — keep a side or write final content — and stage it. */
@@ -317,7 +335,7 @@ export async function resolveConflictFile(
   file: string,
   resolution: ConflictResolution
 ): Promise<void> {
-  const abs = worktreeFilePath(worktreePath, file)
+  const abs = safeWorktreeFilePath(worktreePath, file)
   const git = simpleGit(worktreePath)
   if (resolution === 'ours' || resolution === 'theirs') {
     await git.raw(['checkout', `--${resolution}`, '--', file])

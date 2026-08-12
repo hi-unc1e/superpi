@@ -116,13 +116,6 @@ export function ConfigsPane() {
                   className="w-full rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none"
                 />
               </Field>
-              <Field label="Extra args (optional)">
-                <input
-                  value={draft.extraArgs ?? ''}
-                  onChange={(e) => setDraft({ ...draft, extraArgs: e.target.value })}
-                  className="w-full rounded bg-zinc-800 px-2 py-1 text-sm text-zinc-100 outline-none"
-                />
-              </Field>
               <Field label="First message (optional)" hint="Initial prompt sent to the agent on launch">
                 <textarea
                   value={draft.firstMessage ?? ''}

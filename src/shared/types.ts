@@ -70,13 +70,24 @@ export interface AgentConfig {
   thinking?: string
   /** Branch/commit the worktree starts from. */
   baseBranch?: string
-  /** Extra pi args, space-separated and shell-safe on our side. */
-  extraArgs?: string
   /** First prompt sent when the agent starts a fresh session (positional arg
    * to omp). Sent only on initial launch — never when reviving or resuming. */
   firstMessage?: string
   /** Exactly one config is the default used by +New. */
   isDefault?: boolean
+}
+
+/** Where a terminal agent runs: the workspace root, or an agent's worktree. */
+export type TerminalTarget = 'workspace' | { agentId: string }
+
+/** Options for creating an agent. OMP agents always get a managed worktree;
+ * terminals run in the workspace or an existing agent's worktree. The renderer
+ * never supplies a raw cwd — main resolves the target from this enum. */
+export interface CreateAgentOptions {
+  configId?: string
+  name?: string
+  kind?: AgentKind
+  terminalTarget?: TerminalTarget
 }
 
 /** One model available to the agent binary, from `omp models --json`. */
@@ -187,14 +198,14 @@ export interface SuperpiAPI {
   getWorkspace(): Promise<WorkspaceInfo | null>
   openFolder(): Promise<WorkspaceInfo | null>
   openPath(path: string): Promise<WorkspaceInfo>
-  initGit(path: string): Promise<WorkspaceInfo>
+  initGit(): Promise<WorkspaceInfo>
   listRecentFolders(): Promise<string[]>
   gitLog(): Promise<GitLogEntry[]>
   onWorkspaceChanged(cb: (ws: WorkspaceInfo | null) => void): () => void
 
   // Agents (worktrees in the current workspace)
   listAgents(): Promise<AgentDescriptor[]>
-  createAgent(opts: { configId?: string; name?: string; kind?: AgentKind; cwdPath?: string }): Promise<AgentDescriptor>
+  createAgent(opts: CreateAgentOptions): Promise<AgentDescriptor>
   removeAgent(id: string): Promise<void>
   renameAgent(id: string, name: string): Promise<void>
   onAgentListChanged(cb: (agents: AgentDescriptor[]) => void): () => void

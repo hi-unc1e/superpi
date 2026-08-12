@@ -8,6 +8,7 @@ import { StatusWatcher } from './status'
 import { TerminalManager } from './terminal'
 import { WorktreeManager } from './worktree'
 import { WorkspaceController } from './workspace'
+import { isAllowedDevRendererUrl, isAllowedExternalUrl } from './security'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -58,7 +59,9 @@ function createWindow(): BrowserWindow {
     icon: join(app.getAppPath(), 'icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false,
+      // sandbox:true confines the preload to a restricted subset of the Node/Electron API.
+      // All privileged work happens in main IPC handlers behind sender validation.
+      sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
     }
@@ -69,13 +72,21 @@ function createWindow(): BrowserWindow {
   win.on('closed', () => {
     mainWindow = null
   })
+  // External links (target=_blank, window.open) open in the user's browser, but
+  // only for http/https — never file:/javascript:/custom schemes.
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    if (isAllowedExternalUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
+  // Superpi needs no device permissions; deny all by default.
+  win.webContents.session.setPermissionRequestHandler((_wc, _perm, done) => done(false))
 
-  if (process.env['ELECTRON_RENDERER_URL']) {
-    win.loadURL(process.env['ELECTRON_RENDERER_URL'])
+  // Dev: load the Vite dev server only when it is an allowed local origin. In
+  // packaged production ELECTRON_RENDERER_URL is ignored completely and the
+  // bundled renderer is always loaded — a poisoned env can't swap the UI.
+  const devUrl = isAllowedDevRendererUrl(process.env['ELECTRON_RENDERER_URL'])
+  if (!app.isPackaged && devUrl) {
+    win.loadURL(devUrl)
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
@@ -112,7 +123,7 @@ app.whenReady().then(async () => {
       try {
         const config = configs.get(agent.configId) ?? configs.default()
         terminals.spawn(agent.id, agent.worktreePath, agent.sessionDir, agent.kind, config, 100, 30, true)
-        if (agent.kind !== 'terminal') status.watch(agent.id, agent.sessionDir, agent.eventsFile, { replay: true })
+        if (agent.kind !== 'terminal') status.watch(agent.id, { replay: true })
       } catch (err) {
         console.error(`[superpi] failed to revive agent ${agent.id}:`, err)
         status.markStopped(agent.id)

@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { eventsFileFor } from './paths'
 import { monitorHookPath } from './resources'
+import { safeLaunchEnv } from './security'
 import type { AgentConfig, ModelOption } from '@shared/types'
 
 const execFileAsync = promisify(execFile)
@@ -9,13 +10,13 @@ const execFileAsync = promisify(execFile)
 export interface PiLaunchConfig {
   /** argv passed to `pi`. */
   args: string[]
-  env: NodeJS.ProcessEnv
+  env: Record<string, string>
 }
 
 /**
  * Builds the `omp` invocation for an agent:
  *   omp --session-dir <dir> -e <monitor-hook.ts> --append-system-prompt <worktree-isolation>
- *        [--model ..] [--thinking ..] [extraArgs]
+ *        [--model ..] [--thinking ..] [firstMessage]
  * with SUPERPI_* env so the hook can locate its per-agent events file and the
  * agent environment carries the worktree root for path isolation.
  * The --append-system-prompt injects a worktree isolation directive that
@@ -39,9 +40,10 @@ $SUPERPI_WORKTREE.
 - Changes are committed to the worktree's branch, never to main. Merging
   happens separately — outside your scope.
 - To work on the main branch (outside the worktree), you MUST ask the user
-  for explicit permission first. Without such permission, operating outside
-  the worktree is a violation of your constraints.
+  for explicit permission first. Without such permission, operating outside the
+  worktree is a violation of your constraints.
 </worktree-isolation>`
+
 export function buildPiLaunchConfig(
   agentId: string,
   sessionDir: string,
@@ -53,15 +55,13 @@ export function buildPiLaunchConfig(
   if (resume) args.push('--continue')
   if (config?.model) args.push('--model', config.model)
   if (config?.thinking) args.push('--thinking', config.thinking)
-  if (config?.extraArgs) args.push(...splitArgs(config.extraArgs))
   if (config?.firstMessage && !resume) args.push(config.firstMessage)
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
+  const env = safeLaunchEnv(process.env, {
     SUPERPI: '1',
     SUPERPI_AGENT_ID: agentId,
     SUPERPI_EVENTS: eventsFileFor(agentId),
     SUPERPI_WORKTREE: worktreePath
-  }
+  })
   return { args, env }
 }
 
@@ -91,6 +91,7 @@ let modelsPromise: Promise<ModelOption[]> | null = null
  * the process lifetime — the catalog only changes on `omp models refresh`.
  */
 export function listModels(): Promise<ModelOption[]> {
+  // Fixed literals only — no config values bleed into the shell command.
   modelsPromise ??= execFileAsync('sh', ['-lc', AGENT_BIN + ' models --json'], {
     maxBuffer: 16 * 1024 * 1024,
     timeout: 30_000
@@ -108,22 +109,9 @@ export function listModels(): Promise<ModelOption[]> {
   return modelsPromise
 }
 
-/** Split a user-typed arg string respecting simple single/double quoting. */
-function splitArgs(s: string): string[] {
-  const matches = s.match(/[^\s"']+|"([^"]*)"|'([^']*)'/g)
-  return matches ? matches.map((t) => t.replace(/^["']|["']$/g, '')) : []
-}
-
-function shellQuote(s: string): string {
+/** Shell-quote a single argument using POSIX-safe single-quote wrapping. */
+export function shellQuote(s: string): string {
   if (s === '') return "''"
   if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(s)) return s
   return "'" + s.replace(/'/g, "'\\''") + "'"
-}
-
-export function sanitizeEnv(env: NodeJS.ProcessEnv): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const [k, v] of Object.entries(env)) {
-    if (typeof v === 'string') out[k] = v
-  }
-  return out
 }

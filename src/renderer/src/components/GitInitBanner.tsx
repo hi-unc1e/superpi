@@ -9,7 +9,7 @@ export function GitInitBanner({ workspace }: { workspace: WorkspaceInfo }) {
     setBusy(true)
     setErr(null)
     try {
-      await window.superpi.initGit(workspace.path)
+      await window.superpi.initGit()
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
     } finally {

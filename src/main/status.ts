@@ -1,9 +1,14 @@
 import { EventEmitter } from 'node:events'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { closeSync, existsSync, openSync, readSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentStatusInfo, TodoItem, TodoPhase } from '@shared/types'
+import { expectedSessionPaths, isUuid } from './security'
 
 const POLL_MS = 300
+/** Max bytes read from the events file in a single poll — bounds I/O. */
+const MAX_POLL_BYTES = 256 * 1024
+/** Max bytes for a single event line; longer lines are skipped untrusted. */
+const MAX_LINE_BYTES = 64 * 1024
 
 interface Watch {
   agentId: string
@@ -24,13 +29,16 @@ interface Watch {
 export class StatusWatcher extends EventEmitter {
   private watches = new Map<string, Watch>()
 
-  /** Start watching an agent. With `replay`, the existing events history is
-   * reprocessed first (restores status/lastTool/todoPhases after an app
-   * restart); a stale trailing 'working' is clamped to 'idle' because a
-   * freshly spawned PTY has no turn in flight. Without it, only events
-   * appended after this call are seen. */
-  watch(agentId: string, sessionDir: string, eventsFile: string, opts?: { replay?: boolean }): void {
+  /** Start watching an agent. Session/events paths are DERIVED from the UUID id
+   * (never accepted from persisted descriptors), so a poisoned store can't
+   * redirect reads. With `replay`, the existing events history is reprocessed
+   * first (restores status/lastTool/todoPhases after an app restart); a stale
+   * trailing 'working' is clamped to 'idle' because a freshly spawned PTY has
+   * no turn in flight. Without it, only events appended after this call are seen. */
+  watch(agentId: string, opts?: { replay?: boolean }): void {
+    if (!isUuid(agentId)) return
     if (this.watches.has(agentId)) return
+    const { sessionDir, eventsFile } = expectedSessionPaths(agentId)
     const w: Watch = {
       agentId,
       sessionDir,
@@ -70,25 +78,45 @@ export class StatusWatcher extends EventEmitter {
     this.readSession(w)
   }
 
+  /** Bounded append-only read of the events file. Reads at most MAX_POLL_BYTES
+   * past the last processed offset; only complete (newline-terminated) lines are
+   * parsed, and lines over MAX_LINE_BYTES are skipped. A trailing partial line
+   * is left for the next poll by not advancing eventsPos past the final newline. */
   private readEvents(w: Watch): void {
     if (!existsSync(w.eventsFile)) return
+    let fd: number | undefined
     try {
       const size = statSync(w.eventsFile).size
       if (size < w.eventsPos) w.eventsPos = 0 // truncated/rotated
       if (size === w.eventsPos) return
-      const buf = readFileSync(w.eventsFile, 'utf8')
-      for (const line of buf.slice(w.eventsPos).split('\n')) {
-        if (!line.trim()) continue
+      const want = Math.min(size - w.eventsPos, MAX_POLL_BYTES)
+      const buf = Buffer.alloc(want)
+      fd = openSync(w.eventsFile, 'r')
+      const read = readSync(fd, buf, 0, want, w.eventsPos)
+      const text = buf.subarray(0, read).toString('utf8')
+      // Only consume up to the last complete newline; leave a trailing partial.
+      let processed = 0
+      let start = 0
+      for (let i = 0; i < read; i++) {
+        if (buf[i] !== 0x0a) continue
+        const line = text.slice(start, i)
+        processed = i + 1
+        start = i + 1
+        if (!line.trim() || line.length > MAX_LINE_BYTES) continue
         try {
           this.applyEvent(w, JSON.parse(line))
         } catch {
-          /* partial line — will retry next poll */
+          /* malformed JSON line — ignore */
         }
       }
-      w.eventsPos = size
+      w.eventsPos += processed
       this.emit('changed', w.info)
     } catch {
       /* IO race — ignore */
+    } finally {
+      if (fd !== undefined) {
+        try { closeSync(fd) } catch { /* ignore */ }
+      }
     }
   }
 
@@ -122,7 +150,7 @@ export class StatusWatcher extends EventEmitter {
     }
   }
 
-  /** Best-effort: newest .jsonl in the session dir, last assistant text. */
+  /** Best-effort: newest .jsonl in the derived session dir, last assistant text. */
   private readSession(w: Watch): void {
     try {
       const files = readdirSync(w.sessionDir).filter((f) => f.endsWith('.jsonl'))
