@@ -19,7 +19,7 @@ jobs:
             os: macos-latest
             args: --mac --arm64
           - name: macOS-X64
-            os: macos-13
+            os: macos-latest
             args: --mac --x64
           - name: Windows-X64
             os: windows-latest
